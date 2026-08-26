@@ -32,6 +32,8 @@ class ScannerService : Service() {
     override fun onCreate() {
         super.onCreate()
 
+        ScannerStatus.scannerStarted()
+
         createNotificationChannels()
 
         val notification: Notification =
@@ -59,9 +61,12 @@ class ScannerService : Service() {
                 val tickers =
                     RevolutApi.getTickers()
 
+                ScannerStatus.scanSuccessful(
+                    tickers.size
+                )
+
                 for (ticker in tickers) {
 
-                    // 1. Aktualizacja aktywnego pumpa i historii
                     if (PumpHistory.isTracking(ticker.symbol)) {
                         PumpHistory.addPrice(
                             symbol = ticker.symbol,
@@ -69,7 +74,6 @@ class ScannerService : Service() {
                         )
                     }
 
-                    // 2. Sprawdzamy, czy aktywny pump daje sygnał wyjścia
                     val exitSignal =
                         ExitEngine.updatePrice(
                             symbol = ticker.symbol,
@@ -80,7 +84,6 @@ class ScannerService : Service() {
                         handleExitSignal(exitSignal)
                     }
 
-                    // 3. Szukamy nowych pumpów
                     val pumpSignal =
                         PumpEngine.addPrice(
                             symbol = ticker.symbol,
@@ -89,12 +92,10 @@ class ScannerService : Service() {
 
                     if (pumpSignal != null) {
 
-                        // Rejestrujemy pump do obserwacji exitu
                         ExitEngine.registerPump(
                             pumpSignal
                         )
 
-                        // Rozpoczynamy historię cen dla tego pumpa
                         PumpHistory.startTracking(
                             symbol = pumpSignal.symbol,
                             price = pumpSignal.currentPrice
@@ -107,6 +108,9 @@ class ScannerService : Service() {
                 }
 
             } catch (e: Exception) {
+
+                ScannerStatus.scanFailed(e)
+
                 e.printStackTrace()
             }
 
@@ -265,21 +269,14 @@ class ScannerService : Service() {
                     NotificationManager::class.java
                 )
 
-            manager.createNotificationChannel(
-                scannerChannel
-            )
-
-            manager.createNotificationChannel(
-                pumpChannel
-            )
-
-            manager.createNotificationChannel(
-                exitChannel
-            )
+            manager.createNotificationChannel(scannerChannel)
+            manager.createNotificationChannel(pumpChannel)
+            manager.createNotificationChannel(exitChannel)
         }
     }
 
     override fun onDestroy() {
+        ScannerStatus.scannerStopped()
         scheduler.shutdownNow()
         super.onDestroy()
     }
