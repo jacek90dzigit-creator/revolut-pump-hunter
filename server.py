@@ -15,6 +15,8 @@ BYBIT_INSTRUMENTS_URL = "https://api.bybit.com/v5/market/instruments-info"
 BYBIT_WS_URL = "wss://stream.bybit.com/v5/public/spot"
 GATE_CURRENCY_PAIRS_URL = "https://api.gateio.ws/api/v4/spot/currency_pairs"
 GATE_WS_URL = "wss://api.gateio.ws/ws/v4/"
+OKX_INSTRUMENTS_URL = "https://www.okx.com/api/v5/public/instruments"
+OKX_WS_URL = "wss://ws.okx.com:8443/ws/v5/public"
 
 WHITELIST_REFRESH_SECONDS = 6 * 60 * 60
 HISTORY_SECONDS = 31 * 60
@@ -30,7 +32,7 @@ WINDOWS = {
 
 QUOTE_PRIORITY = ["USDT", "USDC", "FDUSD", "BTC", "ETH"]
 
-app = FastAPI(title="Pump Hunter Server", version="2.3")
+app = FastAPI(title="Pump Hunter Server", version="2.4")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -55,6 +57,11 @@ state: Dict[str, object] = {
     "gate_last_error": None,
     "gate_mapped_assets": 0,
     "gate_symbols": [],
+    "okx_connected": False,
+    "okx_last_event": 0,
+    "okx_last_error": None,
+    "okx_mapped_assets": 0,
+    "okx_symbols": [],
     "total_fast_feed_assets": 0,
     "unmatched_assets": [],
 }
@@ -73,6 +80,8 @@ bybit_symbol_to_asset: Dict[str, str] = {}
 bybit_topics: List[str] = []
 gate_symbol_to_asset: Dict[str, str] = {}
 gate_pairs: List[str] = []
+okx_symbol_to_asset: Dict[str, str] = {}
+okx_args: List[dict] = []
 
 
 def pct_change(current: float, old: float) -> float:
@@ -210,7 +219,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.3",
+            "User-Agent": "PumpHunterServer/2.4",
         },
     )
 
@@ -407,6 +416,78 @@ def build_gate_mapping() -> None:
     state["unmatched_assets"] = sorted(whitelist - combined)
 
 
+
+def build_okx_mapping() -> None:
+    global okx_symbol_to_asset, okx_args
+
+    whitelist = set(state.get("assets", []))
+    already_mapped = (
+        set(binance_symbol_to_asset.values())
+        | set(bybit_symbol_to_asset.values())
+        | set(gate_symbol_to_asset.values())
+    )
+    missing = whitelist - already_mapped
+
+    response = requests.get(
+        OKX_INSTRUMENTS_URL,
+        params={"instType": "SPOT"},
+        timeout=30,
+        headers={"Accept": "application/json"},
+    )
+    response.raise_for_status()
+    payload = response.json()
+
+    if str(payload.get("code", "0")) != "0":
+        raise RuntimeError(
+            "OKX instruments error: "
+            + str(payload.get("msg", "unknown"))
+        )
+
+    candidates: Dict[str, Dict[str, str]] = {}
+
+    for item in payload.get("data", []):
+        if str(item.get("state", "")).lower() != "live":
+            continue
+
+        base = str(item.get("baseCcy", "")).upper()
+        quote = str(item.get("quoteCcy", "")).upper()
+        inst_id = str(item.get("instId", "")).upper()
+
+        if base not in missing or quote not in QUOTE_PRIORITY:
+            continue
+
+        candidates.setdefault(base, {})[quote] = inst_id
+
+    mapping: Dict[str, str] = {}
+    args: List[dict] = []
+
+    for asset in sorted(missing):
+        quote_map = candidates.get(asset, {})
+        selected = next(
+            (quote_map[q] for q in QUOTE_PRIORITY if q in quote_map),
+            None,
+        )
+        if selected:
+            mapping[selected] = asset
+            args.append({"channel": "tickers", "instId": selected})
+
+    okx_symbol_to_asset = mapping
+    okx_args = args
+
+    state["okx_mapped_assets"] = len(mapping)
+    state["okx_symbols"] = sorted(mapping.keys())
+
+    combined = (
+        set(binance_symbol_to_asset.values())
+        | set(bybit_symbol_to_asset.values())
+        | set(gate_symbol_to_asset.values())
+        | set(okx_symbol_to_asset.values())
+    )
+
+    state["total_fast_feed_assets"] = len(combined)
+    state["unmatched_assets"] = sorted(whitelist - combined)
+
+
 async def rebuild_mappings() -> None:
     try:
         build_binance_mapping()
@@ -425,6 +506,12 @@ async def rebuild_mappings() -> None:
         state["gate_last_error"] = None
     except Exception as exc:
         state["gate_last_error"] = f"mapping: {exc}"
+
+    try:
+        build_okx_mapping()
+        state["okx_last_error"] = None
+    except Exception as exc:
+        state["okx_last_error"] = f"mapping: {exc}"
 
 
 async def whitelist_refresh_loop() -> None:
@@ -611,6 +698,84 @@ async def gate_fast_feed_loop() -> None:
             await asyncio.sleep(5)
 
 
+
+async def okx_fast_feed_loop() -> None:
+    while True:
+        try:
+            if not okx_args:
+                await asyncio.sleep(10)
+                continue
+
+            state["okx_connected"] = False
+
+            async with websockets.connect(
+                OKX_WS_URL,
+                ping_interval=20,
+                ping_timeout=60,
+                close_timeout=10,
+                max_size=2_000_000,
+            ) as ws:
+                await ws.send(
+                    json.dumps(
+                        {
+                            "op": "subscribe",
+                            "args": okx_args,
+                        }
+                    )
+                )
+
+                state["okx_connected"] = True
+                state["okx_last_error"] = None
+
+                async for raw in ws:
+                    message = json.loads(raw)
+
+                    if message.get("event") in ("subscribe", "error"):
+                        if message.get("event") == "error":
+                            state["okx_last_error"] = (
+                                f'{message.get("code")}: {message.get("msg")}'
+                            )
+                        continue
+
+                    arg = message.get("arg", {})
+                    if not isinstance(arg, dict):
+                        continue
+                    if arg.get("channel") != "tickers":
+                        continue
+
+                    inst_id = str(arg.get("instId", "")).upper()
+                    asset = okx_symbol_to_asset.get(inst_id)
+                    if not asset:
+                        continue
+
+                    data = message.get("data", [])
+                    if not isinstance(data, list) or not data:
+                        continue
+
+                    item = data[0]
+                    if not isinstance(item, dict):
+                        continue
+
+                    try:
+                        price = float(item.get("last", 0))
+                    except (TypeError, ValueError):
+                        continue
+
+                    state["okx_last_event"] = int(time.time())
+
+                    store_price(
+                        asset=asset,
+                        source="OKX",
+                        source_symbol=inst_id,
+                        price=price,
+                    )
+
+        except Exception as exc:
+            state["okx_connected"] = False
+            state["okx_last_error"] = str(exc)
+            await asyncio.sleep(5)
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
     try:
@@ -625,13 +790,14 @@ async def startup_event() -> None:
     asyncio.create_task(binance_fast_feed_loop())
     asyncio.create_task(bybit_fast_feed_loop())
     asyncio.create_task(gate_fast_feed_loop())
+    asyncio.create_task(okx_fast_feed_loop())
 
 
 @app.get("/")
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.3",
+        "version": "2.4",
         "status": "running",
     }
 
@@ -653,6 +819,9 @@ def status() -> Dict[str, object]:
         "gate_connected": state["gate_connected"],
         "gate_mapped_assets": state["gate_mapped_assets"],
         "gate_last_error": state["gate_last_error"],
+        "okx_connected": state["okx_connected"],
+        "okx_mapped_assets": state["okx_mapped_assets"],
+        "okx_last_error": state["okx_last_error"],
         "total_fast_feed_assets": state["total_fast_feed_assets"],
         "unmatched_assets": len(state["unmatched_assets"]),
         "signal_count": len(signals),
@@ -666,6 +835,7 @@ def coverage() -> Dict[str, object]:
         "binance_assets": state["binance_mapped_assets"],
         "bybit_assets": state["bybit_mapped_assets"],
         "gate_assets": state["gate_mapped_assets"],
+        "okx_assets": state["okx_mapped_assets"],
         "total_fast_feed_assets": state["total_fast_feed_assets"],
         "unmatched_count": len(state["unmatched_assets"]),
         "unmatched_assets": state["unmatched_assets"],
