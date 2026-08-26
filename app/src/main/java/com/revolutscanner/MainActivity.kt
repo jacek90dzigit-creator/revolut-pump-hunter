@@ -15,6 +15,9 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,7 +42,7 @@ class MainActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 36, 24, 24)
+            setPadding(24, 60, 24, 24)
         }
 
         val title = TextView(this).apply {
@@ -136,7 +139,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-
         handler.removeCallbacks(refreshRunnable)
         handler.post(refreshRunnable)
     }
@@ -155,28 +157,57 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPumpTab() {
+
         contentBox.removeAllViews()
 
         addSectionTitle("🔥 PUMP HUNTER")
 
+        addText(ScannerStatus.getStatusText())
+
+        if (ScannerStatus.lastSuccessfulScan > 0) {
+            addText(
+                "Ostatni odczyt: " +
+                    formatTime(ScannerStatus.lastSuccessfulScan)
+            )
+        } else {
+            addText("Ostatni odczyt: jeszcze brak")
+        }
+
         addText(
-            "Scanner działa w tle i obserwuje rynek Revolut X."
+            "Rynki pobrane: ${ScannerStatus.marketsCount}"
         )
 
         addText(
-            "Domyślny sygnał: wzrost +5% w ciągu 30 minut."
+            "Wykonane skany: ${ScannerStatus.totalScans}"
+        )
+
+        if (ScannerStatus.lastError == null) {
+            addText("API: OK ✅")
+        } else {
+            addText(
+                "API: BŁĄD ❌\n${ScannerStatus.lastError}"
+            )
+        }
+
+        addText(
+            "────────────────────"
         )
 
         addText(
-            "Po wykryciu ruchu token automatycznie trafia do zakładki AKTYWNE."
+            "Szukany ruch: +5% / 30 minut"
         )
 
         addText(
-            "Ekran odświeża się automatycznie co 20 sekund."
+            "Skan rynku: co 60 sekund"
+        )
+
+        addText(
+            "Odświeżanie ekranu: co 20 sekund"
         )
     }
 
     private fun showActiveTab() {
+
         contentBox.removeAllViews()
 
         addSectionTitle("📈 AKTYWNE PUMPY")
@@ -218,9 +249,7 @@ class MainActivity : AppCompatActivity() {
             )
 
             val history =
-                PumpHistory.getHistory(
-                    pump.symbol
-                )
+                PumpHistory.getHistory(pump.symbol)
 
             val chart =
                 PumpChartView(this).apply {
@@ -233,30 +262,22 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     600
                 ).apply {
-                    setMargins(
-                        0,
-                        8,
-                        0,
-                        32
-                    )
+                    setMargins(0, 8, 0, 32)
                 }
             )
         }
     }
 
     private fun showExitTab() {
+
         contentBox.removeAllViews()
 
         addSectionTitle("🚪 EXIT SIGNAL")
 
         val pumps =
             ExitEngine.getActivePumps()
-                .filter {
-                    it.exitScore >= 50
-                }
-                .sortedByDescending {
-                    it.exitScore
-                }
+                .filter { it.exitScore >= 50 }
+                .sortedByDescending { it.exitScore }
 
         if (pumps.isEmpty()) {
             addText("Brak aktywnych sygnałów wyjścia.")
@@ -274,9 +295,7 @@ class MainActivity : AppCompatActivity() {
             )
 
             val history =
-                PumpHistory.getHistory(
-                    pump.symbol
-                )
+                PumpHistory.getHistory(pump.symbol)
 
             val chart =
                 PumpChartView(this).apply {
@@ -289,18 +308,14 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     500
                 ).apply {
-                    setMargins(
-                        0,
-                        8,
-                        0,
-                        32
-                    )
+                    setMargins(0, 8, 0, 32)
                 }
             )
         }
     }
 
     private fun addSectionTitle(text: String) {
+
         val view = TextView(this).apply {
             this.text = text
             textSize = 22f
@@ -311,34 +326,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addText(text: String) {
+
         val view = TextView(this).apply {
             this.text = text
             textSize = 17f
-            setPadding(12, 12, 12, 24)
+            setPadding(12, 12, 12, 20)
         }
 
         contentBox.addView(view)
     }
 
-    private fun formatPrice(
-        price: Double
-    ): String {
+    private fun formatPrice(price: Double): String {
 
         return when {
-            price >= 1000 ->
-                "%.2f".format(price)
-
-            price >= 1 ->
-                "%.4f".format(price)
-
-            else ->
-                "%.8f".format(price)
+            price >= 1000 -> "%.2f".format(price)
+            price >= 1 -> "%.4f".format(price)
+            else -> "%.8f".format(price)
         }
     }
 
-    private fun formatPercent(
-        value: Double
-    ): String {
+    private fun formatPercent(value: Double): String {
 
         return if (value >= 0) {
             "+${"%.2f".format(value)}%"
@@ -347,7 +354,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun formatTime(timestamp: Long): String {
+
+        val formatter =
+            SimpleDateFormat(
+                "HH:mm:ss",
+                Locale.getDefault()
+            )
+
+        return formatter.format(
+            Date(timestamp)
+        )
+    }
+
     private fun startScannerService() {
+
         val serviceIntent =
             Intent(
                 this,
