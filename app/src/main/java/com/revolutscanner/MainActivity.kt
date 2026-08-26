@@ -5,7 +5,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
+import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -13,70 +16,176 @@ import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var contentBox: LinearLayout
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         requestNotificationPermission()
+        startScannerService()
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 48, 32, 32)
+            setPadding(24, 36, 24, 24)
         }
 
         val title = TextView(this).apply {
             text = "🔥 Revolut Pump Hunter"
             textSize = 26f
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, 0, 0, 24)
         }
 
-        val subtitle = TextView(this).apply {
-            text = "Pump Hunter • Aktywne Pumpy • Exit Signal"
-            textSize = 16f
-            setPadding(0, 16, 0, 24)
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
         }
 
-        val pump = TextView(this).apply {
-            text = "🔥 PUMP HUNTER\nSkanowanie rynku..."
-            textSize = 20f
-            setPadding(0, 16, 0, 24)
+        val pumpButton = Button(this).apply {
+            text = "🔥 PUMP"
         }
 
-        val active = TextView(this).apply {
-            text = "📈 AKTYWNE PUMPY\nBrak aktywnych sygnałów"
-            textSize = 20f
-            setPadding(0, 16, 0, 24)
+        val activeButton = Button(this).apply {
+            text = "📈 AKTYWNE"
         }
 
-        val exit = TextView(this).apply {
-            text = "🚪 EXIT SIGNAL\nBrak sygnałów wyjścia"
-            textSize = 20f
-            setPadding(0, 16, 0, 24)
+        val exitButton = Button(this).apply {
+            text = "🚪 EXIT"
+        }
+
+        tabs.addView(
+            pumpButton,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+
+        tabs.addView(
+            activeButton,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+
+        tabs.addView(
+            exitButton,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+
+        contentBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 24, 8, 24)
+        }
+
+        val scrollView = ScrollView(this).apply {
+            addView(contentBox)
         }
 
         root.addView(title)
-        root.addView(subtitle)
-        root.addView(pump)
-        root.addView(active)
-        root.addView(exit)
+        root.addView(tabs)
+        root.addView(
+            scrollView,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
 
         setContentView(root)
 
-        val serviceIntent = Intent(this, ScannerService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)
+        pumpButton.setOnClickListener {
+            showPumpTab()
+        }
+
+        activeButton.setOnClickListener {
+            showActiveTab()
+        }
+
+        exitButton.setOnClickListener {
+            showExitTab()
+        }
+
+        showPumpTab()
     }
 
-    private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                    1001
-                )
-            }
+    private fun showPumpTab() {
+        contentBox.removeAllViews()
+
+        addSectionTitle("🔥 PUMP HUNTER")
+
+        addText(
+            "Scanner działa w tle i obserwuje rynek Revolut X."
+        )
+
+        addText(
+            "Domyślny sygnał: wzrost +5% w ciągu 30 minut."
+        )
+
+        addText(
+            "Po wykryciu ruchu token automatycznie trafia do zakładki AKTYWNE."
+        )
+    }
+
+    private fun showActiveTab() {
+        contentBox.removeAllViews()
+
+        addSectionTitle("📈 AKTYWNE PUMPY")
+
+        val pumps = ExitEngine.getActivePumps()
+
+        if (pumps.isEmpty()) {
+            addText("Brak aktywnych pumpów.")
+            return
+        }
+
+        for (pump in pumps) {
+
+            val gainFromDetection =
+                if (pump.detectedPrice > 0) {
+                    ((pump.currentPrice - pump.detectedPrice) /
+                        pump.detectedPrice) * 100.0
+                } else {
+                    0.0
+                }
+
+            val dropFromPeak =
+                if (pump.peakPrice > 0) {
+                    ((pump.peakPrice - pump.currentPrice) /
+                        pump.peakPrice) * 100.0
+                } else {
+                    0.0
+                }
+
+            addText(
+                "${pump.symbol}\n" +
+                    "Cena wykrycia: ${formatPrice(pump.detectedPrice)}\n" +
+                    "Aktualna: ${formatPrice(pump.currentPrice)}\n" +
+                    "Szczyt: ${formatPrice(pump.peakPrice)}\n" +
+                    "Od wykrycia: ${formatPercent(gainFromDetection)}\n" +
+                    "Od szczytu: -${"%.2f".format(dropFromPeak)}%\n" +
+                    "Exit Score: ${pump.exitScore}/100\n" +
+                    "Status: ${pump.status}"
+            )
         }
     }
-}
+
+    private fun showExitTab() {
+        contentBox.removeAllViews()
+
+        addSectionTitle("🚪 EXIT SIGNAL")
+
+        val pumps = ExitEngine.getActivePumps()
+            .filter { it.exitScore >= 50 }
+            .sortedByDescending { it.exitScore }
+
+        if (pumps.isEmpty()) {
+            addText("Brak aktywnych sygnałów wy
