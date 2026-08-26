@@ -98,6 +98,7 @@ class ScannerService : Service() {
 
             for (ticker in tickers) {
 
+                // Zapisujemy kolejne ceny aktywnego pumpa
                 if (
                     PumpHistory.isTracking(
                         ticker.symbol
@@ -110,6 +111,7 @@ class ScannerService : Service() {
                     )
                 }
 
+                // Analiza wyjścia
                 val exitSignal =
                     ExitEngine.updatePrice(
                         symbol = ticker.symbol,
@@ -117,11 +119,13 @@ class ScannerService : Service() {
                     )
 
                 if (exitSignal != null) {
+
                     handleExitSignal(
                         exitSignal
                     )
                 }
 
+                // Szukanie nowych pumpów
                 val pumpSignal =
                     PumpEngine.addPrice(
                         symbol = ticker.symbol,
@@ -145,6 +149,8 @@ class ScannerService : Service() {
                 }
             }
 
+            // Udany skan:
+            // wracamy do normalnego rytmu 90 sekund
             scheduleNextScan(
                 NORMAL_SCAN_DELAY_MS
             )
@@ -158,6 +164,11 @@ class ScannerService : Service() {
             val serverWait =
                 e.retryAfterMs
 
+            /*
+             * Bierzemy pod uwagę:
+             * 1. czas Retry-After podany przez Revolut
+             * 2. nasz własny rosnący backoff
+             */
             val calculatedBackoff =
                 maxOf(
                     serverWait + 5_000L,
@@ -170,6 +181,12 @@ class ScannerService : Service() {
                     MAX_BACKOFF_MS
                 )
 
+            // Informujemy diagnostykę,
+            // że scanner celowo czeka.
+            ScannerStatus.startBackoff(
+                currentBackoffMs
+            )
+
             scheduleNextScan(
                 currentBackoffMs
             )
@@ -180,6 +197,10 @@ class ScannerService : Service() {
 
             ScannerStatus.scanFailed(e)
 
+            /*
+             * Przy innym błędzie również zwalniamy,
+             * żeby nie bombardować API.
+             */
             currentBackoffMs =
                 min(
                     currentBackoffMs * 2,
