@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -38,12 +39,15 @@ class ScannerService : Service() {
 
     private var stopped = false
 
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onCreate() {
         super.onCreate()
 
         ScannerStatus.scannerStarted()
 
         createNotificationChannels()
+        acquireWakeLock()
 
         val notification: Notification =
             NotificationCompat.Builder(this, CHANNEL_ID)
@@ -51,6 +55,7 @@ class ScannerService : Service() {
                 .setContentText("Scanner rynku działa w tle")
                 .setSmallIcon(android.R.drawable.ic_popup_sync)
                 .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
 
         startForeground(
@@ -59,6 +64,38 @@ class ScannerService : Service() {
         )
 
         scheduleNextScan(0L)
+    }
+
+    private fun acquireWakeLock() {
+
+        val powerManager =
+            getSystemService(POWER_SERVICE) as PowerManager
+
+        wakeLock =
+            powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "RevolutPumpHunter::ScannerWakeLock"
+            )
+
+        wakeLock?.setReferenceCounted(false)
+
+        if (wakeLock?.isHeld != true) {
+            wakeLock?.acquire()
+        }
+    }
+
+    private fun releaseWakeLock() {
+
+        try {
+
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+
+        } catch (_: Exception) {
+        }
+
+        wakeLock = null
     }
 
     private fun scheduleNextScan(
@@ -98,7 +135,6 @@ class ScannerService : Service() {
 
             for (ticker in tickers) {
 
-                // Zapisujemy kolejne ceny aktywnego pumpa
                 if (
                     PumpHistory.isTracking(
                         ticker.symbol
@@ -111,7 +147,6 @@ class ScannerService : Service() {
                     )
                 }
 
-                // Analiza wyjścia
                 val exitSignal =
                     ExitEngine.updatePrice(
                         symbol = ticker.symbol,
@@ -119,13 +154,11 @@ class ScannerService : Service() {
                     )
 
                 if (exitSignal != null) {
-
                     handleExitSignal(
                         exitSignal
                     )
                 }
 
-                // Szukanie nowych pumpów
                 val pumpSignal =
                     PumpEngine.addPrice(
                         symbol = ticker.symbol,
@@ -149,8 +182,6 @@ class ScannerService : Service() {
                 }
             }
 
-            // Udany skan:
-            // wracamy do normalnego rytmu 90 sekund
             scheduleNextScan(
                 NORMAL_SCAN_DELAY_MS
             )
@@ -164,11 +195,6 @@ class ScannerService : Service() {
             val serverWait =
                 e.retryAfterMs
 
-            /*
-             * Bierzemy pod uwagę:
-             * 1. czas Retry-After podany przez Revolut
-             * 2. nasz własny rosnący backoff
-             */
             val calculatedBackoff =
                 maxOf(
                     serverWait + 5_000L,
@@ -181,8 +207,6 @@ class ScannerService : Service() {
                     MAX_BACKOFF_MS
                 )
 
-            // Informujemy diagnostykę,
-            // że scanner celowo czeka.
             ScannerStatus.startBackoff(
                 currentBackoffMs
             )
@@ -197,10 +221,6 @@ class ScannerService : Service() {
 
             ScannerStatus.scanFailed(e)
 
-            /*
-             * Przy innym błędzie również zwalniamy,
-             * żeby nie bombardować API.
-             */
             currentBackoffMs =
                 min(
                     currentBackoffMs * 2,
@@ -396,6 +416,17 @@ class ScannerService : Service() {
         }
     }
 
+    override fun onTaskRemoved(
+        rootIntent: Intent?
+    ) {
+
+        /*
+         * Gdy aplikacja zostanie usunięta z ostatnich,
+         * nie zatrzymujemy ręcznie skanera.
+         */
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
 
         stopped = true
@@ -403,6 +434,8 @@ class ScannerService : Service() {
         ScannerStatus.scannerStopped()
 
         scheduler.shutdownNow()
+
+        releaseWakeLock()
 
         super.onDestroy()
     }
