@@ -1,9 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Dostęp do internetu -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Powiadomienia Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Foreground Service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- Pozwala scannerowi pracować przy wygaszonym ekranie -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:theme="@style/AppTheme"
@@ -25,6 +33,7 @@
         <service
             android:name=".ScannerService"
             android:exported="false"
+            android:stopWithTask="false"
             android:foregroundServiceType="dataSync" />
 
     </application>
