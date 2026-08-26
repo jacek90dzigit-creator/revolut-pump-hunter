@@ -17,6 +17,8 @@ GATE_CURRENCY_PAIRS_URL = "https://api.gateio.ws/api/v4/spot/currency_pairs"
 GATE_WS_URL = "wss://api.gateio.ws/ws/v4/"
 OKX_INSTRUMENTS_URL = "https://www.okx.com/api/v5/public/instruments"
 OKX_WS_URL = "wss://ws.okx.com:8443/ws/v5/public"
+KUCOIN_SYMBOLS_URL = "https://api.kucoin.com/api/v2/symbols"
+KUCOIN_BULLET_URL = "https://api.kucoin.com/api/v1/bullet-public"
 
 WHITELIST_REFRESH_SECONDS = 6 * 60 * 60
 HISTORY_SECONDS = 31 * 60
@@ -32,7 +34,7 @@ WINDOWS = {
 
 QUOTE_PRIORITY = ["USDT", "USDC", "FDUSD", "BTC", "ETH"]
 
-app = FastAPI(title="Pump Hunter Server", version="2.4")
+app = FastAPI(title="Pump Hunter Server", version="2.5")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -62,6 +64,11 @@ state: Dict[str, object] = {
     "okx_last_error": None,
     "okx_mapped_assets": 0,
     "okx_symbols": [],
+    "kucoin_connected": False,
+    "kucoin_last_event": 0,
+    "kucoin_last_error": None,
+    "kucoin_mapped_assets": 0,
+    "kucoin_symbols": [],
     "total_fast_feed_assets": 0,
     "unmatched_assets": [],
 }
@@ -82,6 +89,8 @@ gate_symbol_to_asset: Dict[str, str] = {}
 gate_pairs: List[str] = []
 okx_symbol_to_asset: Dict[str, str] = {}
 okx_args: List[dict] = []
+kucoin_symbol_to_asset: Dict[str, str] = {}
+kucoin_symbols: List[str] = []
 
 
 def pct_change(current: float, old: float) -> float:
@@ -219,7 +228,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.4",
+            "User-Agent": "PumpHunterServer/2.5",
         },
     )
 
@@ -488,6 +497,112 @@ def build_okx_mapping() -> None:
     state["unmatched_assets"] = sorted(whitelist - combined)
 
 
+
+def build_kucoin_mapping() -> None:
+    global kucoin_symbol_to_asset, kucoin_symbols
+
+    whitelist = set(state.get("assets", []))
+    already_mapped = (
+        set(binance_symbol_to_asset.values())
+        | set(bybit_symbol_to_asset.values())
+        | set(gate_symbol_to_asset.values())
+        | set(okx_symbol_to_asset.values())
+    )
+    missing = whitelist - already_mapped
+
+    response = requests.get(
+        KUCOIN_SYMBOLS_URL,
+        timeout=30,
+        headers={"Accept": "application/json"},
+    )
+    response.raise_for_status()
+    payload = response.json()
+
+    if str(payload.get("code", "")) != "200000":
+        raise RuntimeError(
+            "KuCoin symbols error: "
+            + str(payload.get("msg", payload.get("code", "unknown")))
+        )
+
+    candidates: Dict[str, Dict[str, str]] = {}
+
+    for item in payload.get("data", []):
+        if not item.get("enableTrading", False):
+            continue
+
+        base = str(item.get("baseCurrency", "")).upper()
+        quote = str(item.get("quoteCurrency", "")).upper()
+        symbol = str(item.get("symbol", "")).upper()
+
+        if base not in missing or quote not in QUOTE_PRIORITY:
+            continue
+
+        candidates.setdefault(base, {})[quote] = symbol
+
+    mapping: Dict[str, str] = {}
+    symbols: List[str] = []
+
+    for asset in sorted(missing):
+        quote_map = candidates.get(asset, {})
+        selected = next(
+            (quote_map[q] for q in QUOTE_PRIORITY if q in quote_map),
+            None,
+        )
+        if selected:
+            mapping[selected] = asset
+            symbols.append(selected)
+
+    kucoin_symbol_to_asset = mapping
+    kucoin_symbols = symbols
+
+    state["kucoin_mapped_assets"] = len(mapping)
+    state["kucoin_symbols"] = sorted(mapping.keys())
+
+    combined = (
+        set(binance_symbol_to_asset.values())
+        | set(bybit_symbol_to_asset.values())
+        | set(gate_symbol_to_asset.values())
+        | set(okx_symbol_to_asset.values())
+        | set(kucoin_symbol_to_asset.values())
+    )
+
+    state["total_fast_feed_assets"] = len(combined)
+    state["unmatched_assets"] = sorted(whitelist - combined)
+
+
+def get_kucoin_ws_connection() -> tuple:
+    response = requests.post(
+        KUCOIN_BULLET_URL,
+        timeout=30,
+        headers={"Accept": "application/json"},
+    )
+    response.raise_for_status()
+    payload = response.json()
+
+    if str(payload.get("code", "")) != "200000":
+        raise RuntimeError(
+            "KuCoin bullet error: "
+            + str(payload.get("msg", payload.get("code", "unknown")))
+        )
+
+    data = payload.get("data", {})
+    token = str(data.get("token", ""))
+    servers = data.get("instanceServers", [])
+
+    if not token or not servers:
+        raise RuntimeError("KuCoin bullet response missing token/server")
+
+    endpoint = str(servers[0].get("endpoint", "")).rstrip("/")
+    if not endpoint:
+        raise RuntimeError("KuCoin bullet response missing endpoint")
+
+    connect_id = str(int(time.time() * 1000))
+    url = f"{endpoint}?token={token}&connectId={connect_id}"
+
+    ping_ms = int(servers[0].get("pingInterval", 18000) or 18000)
+    return url, max(5.0, (ping_ms / 1000.0) * 0.75)
+
+
 async def rebuild_mappings() -> None:
     try:
         build_binance_mapping()
@@ -512,6 +627,12 @@ async def rebuild_mappings() -> None:
         state["okx_last_error"] = None
     except Exception as exc:
         state["okx_last_error"] = f"mapping: {exc}"
+
+    try:
+        build_kucoin_mapping()
+        state["kucoin_last_error"] = None
+    except Exception as exc:
+        state["kucoin_last_error"] = f"mapping: {exc}"
 
 
 async def whitelist_refresh_loop() -> None:
@@ -776,6 +897,107 @@ async def okx_fast_feed_loop() -> None:
             await asyncio.sleep(5)
 
 
+
+async def kucoin_fast_feed_loop() -> None:
+    while True:
+        try:
+            if not kucoin_symbols:
+                await asyncio.sleep(10)
+                continue
+
+            state["kucoin_connected"] = False
+
+            ws_url, app_ping_seconds = await asyncio.to_thread(
+                get_kucoin_ws_connection
+            )
+
+            async with websockets.connect(
+                ws_url,
+                ping_interval=None,
+                close_timeout=10,
+                max_size=2_000_000,
+            ) as ws:
+                topic = "/market/ticker:" + ",".join(kucoin_symbols)
+
+                await ws.send(
+                    json.dumps(
+                        {
+                            "id": str(int(time.time() * 1000)),
+                            "type": "subscribe",
+                            "topic": topic,
+                            "response": True,
+                        }
+                    )
+                )
+
+                state["kucoin_connected"] = True
+                state["kucoin_last_error"] = None
+
+                while True:
+                    try:
+                        raw = await asyncio.wait_for(
+                            ws.recv(),
+                            timeout=app_ping_seconds,
+                        )
+                    except asyncio.TimeoutError:
+                        await ws.send(
+                            json.dumps(
+                                {
+                                    "id": str(int(time.time() * 1000)),
+                                    "type": "ping",
+                                }
+                            )
+                        )
+                        continue
+
+                    message = json.loads(raw)
+
+                    if message.get("type") in ("welcome", "ack", "pong"):
+                        continue
+
+                    if message.get("type") != "message":
+                        continue
+
+                    subject = str(message.get("subject", "")).upper()
+                    topic_name = str(message.get("topic", "")).upper()
+
+                    symbol = ""
+                    if subject in kucoin_symbol_to_asset:
+                        symbol = subject
+                    else:
+                        for candidate in kucoin_symbol_to_asset:
+                            if candidate in topic_name:
+                                symbol = candidate
+                                break
+
+                    asset = kucoin_symbol_to_asset.get(symbol)
+                    if not asset:
+                        continue
+
+                    data = message.get("data", {})
+                    if not isinstance(data, dict):
+                        continue
+
+                    try:
+                        price = float(data.get("price", 0))
+                    except (TypeError, ValueError):
+                        continue
+
+                    state["kucoin_last_event"] = int(time.time())
+
+                    store_price(
+                        asset=asset,
+                        source="KUCOIN",
+                        source_symbol=symbol,
+                        price=price,
+                    )
+
+        except Exception as exc:
+            state["kucoin_connected"] = False
+            state["kucoin_last_error"] = str(exc)
+            await asyncio.sleep(5)
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
     try:
@@ -791,13 +1013,14 @@ async def startup_event() -> None:
     asyncio.create_task(bybit_fast_feed_loop())
     asyncio.create_task(gate_fast_feed_loop())
     asyncio.create_task(okx_fast_feed_loop())
+    asyncio.create_task(kucoin_fast_feed_loop())
 
 
 @app.get("/")
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.4",
+        "version": "2.5",
         "status": "running",
     }
 
@@ -822,6 +1045,9 @@ def status() -> Dict[str, object]:
         "okx_connected": state["okx_connected"],
         "okx_mapped_assets": state["okx_mapped_assets"],
         "okx_last_error": state["okx_last_error"],
+        "kucoin_connected": state["kucoin_connected"],
+        "kucoin_mapped_assets": state["kucoin_mapped_assets"],
+        "kucoin_last_error": state["kucoin_last_error"],
         "total_fast_feed_assets": state["total_fast_feed_assets"],
         "unmatched_assets": len(state["unmatched_assets"]),
         "signal_count": len(signals),
@@ -836,6 +1062,7 @@ def coverage() -> Dict[str, object]:
         "bybit_assets": state["bybit_mapped_assets"],
         "gate_assets": state["gate_mapped_assets"],
         "okx_assets": state["okx_mapped_assets"],
+        "kucoin_assets": state["kucoin_mapped_assets"],
         "total_fast_feed_assets": state["total_fast_feed_assets"],
         "unmatched_count": len(state["unmatched_assets"]),
         "unmatched_assets": state["unmatched_assets"],
