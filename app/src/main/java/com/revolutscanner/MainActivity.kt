@@ -139,6 +139,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+
         handler.removeCallbacks(refreshRunnable)
         handler.post(refreshRunnable)
     }
@@ -149,6 +150,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshCurrentTab() {
+
         when (currentTab) {
             "ACTIVE" -> showActiveTab()
             "EXIT" -> showExitTab()
@@ -162,15 +164,24 @@ class MainActivity : AppCompatActivity() {
 
         addSectionTitle("🔥 PUMP HUNTER")
 
-        addText(ScannerStatus.getStatusText())
+        addText(
+            ScannerStatus.getStatusText()
+        )
 
         if (ScannerStatus.lastSuccessfulScan > 0) {
+
             addText(
-                "Ostatni odczyt: " +
-                    formatTime(ScannerStatus.lastSuccessfulScan)
+                "Ostatni udany odczyt: " +
+                    formatTime(
+                        ScannerStatus.lastSuccessfulScan
+                    )
             )
+
         } else {
-            addText("Ostatni odczyt: jeszcze brak")
+
+            addText(
+                "Ostatni udany odczyt: jeszcze brak"
+            )
         }
 
         addText(
@@ -181,11 +192,40 @@ class MainActivity : AppCompatActivity() {
             "Wykonane skany: ${ScannerStatus.totalScans}"
         )
 
-        if (ScannerStatus.lastError == null) {
-            addText("API: OK ✅")
-        } else {
+        if (
+            ScannerStatus.isBackoff &&
+            ScannerStatus.getRemainingBackoffSeconds() > 0
+        ) {
+
+            val seconds =
+                ScannerStatus.getRemainingBackoffSeconds()
+
             addText(
-                "API: BŁĄD ❌\n${ScannerStatus.lastError}"
+                "🟡 Revolut: BACKOFF\n" +
+                    "Następna próba za: $seconds s"
+            )
+
+            if (ScannerStatus.lastError != null) {
+
+                addText(
+                    "Ostatni błąd:\n" +
+                        ScannerStatus.lastError
+                )
+            }
+
+        } else if (
+            ScannerStatus.lastError == null
+        ) {
+
+            addText(
+                "Revolut API: OK ✅"
+            )
+
+        } else {
+
+            addText(
+                "Revolut API: BŁĄD ❌\n" +
+                    ScannerStatus.lastError
             )
         }
 
@@ -198,11 +238,15 @@ class MainActivity : AppCompatActivity() {
         )
 
         addText(
-            "Skan rynku: co 60 sekund"
+            "Normalny skan Revolut: co 90 sekund"
         )
 
         addText(
             "Odświeżanie ekranu: co 20 sekund"
+        )
+
+        addText(
+            "Automatyczny backoff: AKTYWNY ✅"
         )
     }
 
@@ -210,12 +254,19 @@ class MainActivity : AppCompatActivity() {
 
         contentBox.removeAllViews()
 
-        addSectionTitle("📈 AKTYWNE PUMPY")
+        addSectionTitle(
+            "📈 AKTYWNE PUMPY"
+        )
 
-        val pumps = ExitEngine.getActivePumps()
+        val pumps =
+            ExitEngine.getActivePumps()
 
         if (pumps.isEmpty()) {
-            addText("Brak aktywnych pumpów.")
+
+            addText(
+                "Brak aktywnych pumpów."
+            )
+
             return
         }
 
@@ -223,37 +274,60 @@ class MainActivity : AppCompatActivity() {
 
             val gainFromDetection =
                 if (pump.detectedPrice > 0) {
-                    ((pump.currentPrice - pump.detectedPrice) /
-                        pump.detectedPrice) * 100.0
+
+                    (
+                        (pump.currentPrice -
+                            pump.detectedPrice) /
+                            pump.detectedPrice
+                        ) * 100.0
+
                 } else {
+
                     0.0
                 }
 
             val dropFromPeak =
                 if (pump.peakPrice > 0) {
-                    ((pump.peakPrice - pump.currentPrice) /
-                        pump.peakPrice) * 100.0
+
+                    (
+                        (pump.peakPrice -
+                            pump.currentPrice) /
+                            pump.peakPrice
+                        ) * 100.0
+
                 } else {
+
                     0.0
                 }
 
             addText(
                 "${pump.symbol}\n" +
-                    "Cena wykrycia: ${formatPrice(pump.detectedPrice)}\n" +
-                    "Aktualna: ${formatPrice(pump.currentPrice)}\n" +
-                    "Szczyt: ${formatPrice(pump.peakPrice)}\n" +
-                    "Od wykrycia: ${formatPercent(gainFromDetection)}\n" +
-                    "Od szczytu: -${"%.2f".format(dropFromPeak)}%\n" +
-                    "Exit Score: ${pump.exitScore}/100\n" +
+                    "Cena wykrycia: " +
+                    "${formatPrice(pump.detectedPrice)}\n" +
+                    "Aktualna: " +
+                    "${formatPrice(pump.currentPrice)}\n" +
+                    "Szczyt: " +
+                    "${formatPrice(pump.peakPrice)}\n" +
+                    "Od wykrycia: " +
+                    "${formatPercent(gainFromDetection)}\n" +
+                    "Od szczytu: " +
+                    "-${"%.2f".format(dropFromPeak)}%\n" +
+                    "Exit Score: " +
+                    "${pump.exitScore}/100\n" +
                     "Status: ${pump.status}"
             )
 
             val history =
-                PumpHistory.getHistory(pump.symbol)
+                PumpHistory.getHistory(
+                    pump.symbol
+                )
 
             val chart =
                 PumpChartView(this).apply {
-                    setHistory(history)
+
+                    setHistory(
+                        history
+                    )
                 }
 
             contentBox.addView(
@@ -262,7 +336,13 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     600
                 ).apply {
-                    setMargins(0, 8, 0, 32)
+
+                    setMargins(
+                        0,
+                        8,
+                        0,
+                        32
+                    )
                 }
             )
         }
@@ -272,15 +352,25 @@ class MainActivity : AppCompatActivity() {
 
         contentBox.removeAllViews()
 
-        addSectionTitle("🚪 EXIT SIGNAL")
+        addSectionTitle(
+            "🚪 EXIT SIGNAL"
+        )
 
         val pumps =
             ExitEngine.getActivePumps()
-                .filter { it.exitScore >= 50 }
-                .sortedByDescending { it.exitScore }
+                .filter {
+                    it.exitScore >= 50
+                }
+                .sortedByDescending {
+                    it.exitScore
+                }
 
         if (pumps.isEmpty()) {
-            addText("Brak aktywnych sygnałów wyjścia.")
+
+            addText(
+                "Brak aktywnych sygnałów wyjścia."
+            )
+
             return
         }
 
@@ -288,18 +378,26 @@ class MainActivity : AppCompatActivity() {
 
             addText(
                 "${pump.symbol}\n" +
-                    "Exit Score: ${pump.exitScore}/100\n" +
-                    "Aktualna cena: ${formatPrice(pump.currentPrice)}\n" +
-                    "Szczyt: ${formatPrice(pump.peakPrice)}\n" +
+                    "Exit Score: " +
+                    "${pump.exitScore}/100\n" +
+                    "Aktualna cena: " +
+                    "${formatPrice(pump.currentPrice)}\n" +
+                    "Szczyt: " +
+                    "${formatPrice(pump.peakPrice)}\n" +
                     "Status: ${pump.status}"
             )
 
             val history =
-                PumpHistory.getHistory(pump.symbol)
+                PumpHistory.getHistory(
+                    pump.symbol
+                )
 
             val chart =
                 PumpChartView(this).apply {
-                    setHistory(history)
+
+                    setHistory(
+                        history
+                    )
                 }
 
             contentBox.addView(
@@ -308,53 +406,98 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     500
                 ).apply {
-                    setMargins(0, 8, 0, 32)
+
+                    setMargins(
+                        0,
+                        8,
+                        0,
+                        32
+                    )
                 }
             )
         }
     }
 
-    private fun addSectionTitle(text: String) {
+    private fun addSectionTitle(
+        text: String
+    ) {
 
-        val view = TextView(this).apply {
-            this.text = text
-            textSize = 22f
-            setPadding(0, 8, 0, 20)
-        }
+        val view =
+            TextView(this).apply {
 
-        contentBox.addView(view)
+                this.text = text
+                textSize = 22f
+
+                setPadding(
+                    0,
+                    8,
+                    0,
+                    20
+                )
+            }
+
+        contentBox.addView(
+            view
+        )
     }
 
-    private fun addText(text: String) {
+    private fun addText(
+        text: String
+    ) {
 
-        val view = TextView(this).apply {
-            this.text = text
-            textSize = 17f
-            setPadding(12, 12, 12, 20)
-        }
+        val view =
+            TextView(this).apply {
 
-        contentBox.addView(view)
+                this.text = text
+                textSize = 17f
+
+                setPadding(
+                    12,
+                    12,
+                    12,
+                    20
+                )
+            }
+
+        contentBox.addView(
+            view
+        )
     }
 
-    private fun formatPrice(price: Double): String {
+    private fun formatPrice(
+        price: Double
+    ): String {
 
         return when {
-            price >= 1000 -> "%.2f".format(price)
-            price >= 1 -> "%.4f".format(price)
-            else -> "%.8f".format(price)
+
+            price >= 1000 ->
+                "%.2f".format(price)
+
+            price >= 1 ->
+                "%.4f".format(price)
+
+            else ->
+                "%.8f".format(price)
         }
     }
 
-    private fun formatPercent(value: Double): String {
+    private fun formatPercent(
+        value: Double
+    ): String {
 
         return if (value >= 0) {
+
             "+${"%.2f".format(value)}%"
+
         } else {
+
             "${"%.2f".format(value)}%"
         }
     }
 
-    private fun formatTime(timestamp: Long): String {
+    private fun formatTime(
+        timestamp: Long
+    ): String {
 
         val formatter =
             SimpleDateFormat(
