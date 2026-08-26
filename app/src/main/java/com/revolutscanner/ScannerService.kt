@@ -16,13 +16,17 @@ class ScannerService : Service() {
     companion object {
         const val CHANNEL_ID = "pump_hunter_scanner"
         const val ALERT_CHANNEL_ID = "pump_hunter_alerts"
+        const val EXIT_CHANNEL_ID = "pump_hunter_exit"
         const val NOTIFICATION_ID = 101
     }
 
     private val scheduler =
         Executors.newSingleThreadScheduledExecutor()
 
-    private val lastAlertTime =
+    private val lastPumpAlertTime =
+        mutableMapOf<String, Long>()
+
+    private val lastExitAlertTime =
         mutableMapOf<String, Long>()
 
     override fun onCreate() {
@@ -38,7 +42,10 @@ class ScannerService : Service() {
                 .setOngoing(true)
                 .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        startForeground(
+            NOTIFICATION_ID,
+            notification
+        )
 
         startScanner()
     }
@@ -49,18 +56,39 @@ class ScannerService : Service() {
 
             try {
 
-                val tickers = RevolutApi.getTickers()
+                val tickers =
+                    RevolutApi.getTickers()
 
                 for (ticker in tickers) {
 
-                    val signal =
+                    // 1. Aktualizujemy już aktywne pumpy
+                    val exitSignal =
+                        ExitEngine.updatePrice(
+                            symbol = ticker.symbol,
+                            price = ticker.lastPrice
+                        )
+
+                    if (exitSignal != null) {
+                        handleExitSignal(exitSignal)
+                    }
+
+                    // 2. Szukamy nowych pumpów
+                    val pumpSignal =
                         PumpEngine.addPrice(
                             symbol = ticker.symbol,
                             price = ticker.lastPrice
                         )
 
-                    if (signal != null) {
-                        handlePumpSignal(signal)
+                    if (pumpSignal != null) {
+
+                        // Rejestrujemy pump do dalszej obserwacji
+                        ExitEngine.registerPump(
+                            pumpSignal
+                        )
+
+                        handlePumpSignal(
+                            pumpSignal
+                        )
                     }
                 }
 
@@ -79,7 +107,7 @@ class ScannerService : Service() {
             System.currentTimeMillis()
 
         val lastAlert =
-            lastAlertTime[signal.symbol] ?: 0L
+            lastPumpAlertTime[signal.symbol] ?: 0L
 
         val cooldown =
             15 * 60 * 1000L
@@ -88,7 +116,7 @@ class ScannerService : Service() {
             return
         }
 
-        lastAlertTime[signal.symbol] = now
+        lastPumpAlertTime[signal.symbol] = now
 
         val notification =
             NotificationCompat.Builder(
@@ -104,7 +132,7 @@ class ScannerService : Service() {
                 .setContentText(
                     "+${"%.2f".format(signal.changePercent)}% / " +
                         "${signal.durationMinutes} min | " +
-                        "Score ${signal.pumpScore}/10"
+                        "Pump Score ${signal.pumpScore}/10"
                 )
                 .setPriority(
                     NotificationCompat.PRIORITY_HIGH
@@ -123,6 +151,75 @@ class ScannerService : Service() {
         )
     }
 
+    private fun handleExitSignal(
+        signal: ExitSignal
+    ) {
+
+        // Powiadomienie dopiero od EXIT WATCH
+        if (signal.exitScore < 50) {
+            return
+        }
+
+        val now =
+            System.currentTimeMillis()
+
+        val lastAlert =
+            lastExitAlertTime[signal.symbol] ?: 0L
+
+        val cooldown =
+            10 * 60 * 1000L
+
+        if (now - lastAlert < cooldown) {
+            return
+        }
+
+        lastExitAlertTime[signal.symbol] = now
+
+        val notification =
+            NotificationCompat.Builder(
+                this,
+                EXIT_CHANNEL_ID
+            )
+                .setSmallIcon(
+                    android.R.drawable.ic_dialog_alert
+                )
+                .setContentTitle(
+                    "🚪 ${signal.level}: ${signal.symbol}"
+                )
+                .setContentText(
+                    "Exit Score ${signal.exitScore}/100 | " +
+                        "od szczytu -${"%.2f".format(signal.dropFromPeakPercent)}% | " +
+                        "momentum ${"%.2f".format(signal.momentumPercent)}%"
+                )
+                .setStyle(
+                    NotificationCompat.BigTextStyle()
+                        .bigText(
+                            "${signal.symbol}\n" +
+                                "Exit Score: ${signal.exitScore}/100\n" +
+                                "Szczyt: ${"%.6f".format(signal.peakPrice)}\n" +
+                                "Cena: ${"%.6f".format(signal.currentPrice)}\n" +
+                                "Cofnięcie: -${"%.2f".format(signal.dropFromPeakPercent)}%\n" +
+                                "Momentum: ${"%.2f".format(signal.momentumPercent)}%\n" +
+                                "Status: ${signal.level}"
+                        )
+                )
+                .setPriority(
+                    NotificationCompat.PRIORITY_HIGH
+                )
+                .setAutoCancel(true)
+                .build()
+
+        val manager =
+            getSystemService(
+                NotificationManager::class.java
+            )
+
+        manager.notify(
+            signal.symbol.hashCode() + 500000,
+            notification
+        )
+    }
+
     private fun createNotificationChannels() {
 
         if (Build.VERSION.SDK_INT >=
@@ -136,10 +233,17 @@ class ScannerService : Service() {
                     NotificationManager.IMPORTANCE_LOW
                 )
 
-            val alertChannel =
+            val pumpChannel =
                 NotificationChannel(
                     ALERT_CHANNEL_ID,
-                    "Pump Hunter Alerts",
+                    "Pump Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+                )
+
+            val exitChannel =
+                NotificationChannel(
+                    EXIT_CHANNEL_ID,
+                    "Exit Signals",
                     NotificationManager.IMPORTANCE_HIGH
                 )
 
@@ -153,7 +257,11 @@ class ScannerService : Service() {
             )
 
             manager.createNotificationChannel(
-                alertChannel
+                pumpChannel
+            )
+
+            manager.createNotificationChannel(
+                exitChannel
             )
         }
     }
@@ -164,16 +272,4 @@ class ScannerService : Service() {
     }
 
     override fun onStartCommand(
-        intent: Intent?,
-        flags: Int,
-        startId: Int
-    ): Int {
-        return START_STICKY
-    }
-
-    override fun onBind(
-        intent: Intent?
-    ): IBinder? {
-        return null
-    }
-}
+        intent: Intent
