@@ -10,6 +10,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlin.math.min
 
 class ScannerService : Service() {
 
@@ -18,6 +19,9 @@ class ScannerService : Service() {
         const val ALERT_CHANNEL_ID = "pump_hunter_alerts"
         const val EXIT_CHANNEL_ID = "pump_hunter_exit"
         const val NOTIFICATION_ID = 101
+
+        private const val NORMAL_SCAN_DELAY_MS = 90_000L
+        private const val MAX_BACKOFF_MS = 10 * 60_000L
     }
 
     private val scheduler =
@@ -28,6 +32,11 @@ class ScannerService : Service() {
 
     private val lastExitAlertTime =
         mutableMapOf<String, Long>()
+
+    private var currentBackoffMs =
+        NORMAL_SCAN_DELAY_MS
+
+    private var stopped = false
 
     override fun onCreate() {
         super.onCreate()
@@ -49,72 +58,138 @@ class ScannerService : Service() {
             notification
         )
 
-        startScanner()
+        scheduleNextScan(0L)
     }
 
-    private fun startScanner() {
+    private fun scheduleNextScan(
+        delayMs: Long
+    ) {
 
-        scheduler.scheduleAtFixedRate({
+        if (stopped) {
+            return
+        }
 
-            try {
+        scheduler.schedule(
+            {
+                performScan()
+            },
+            delayMs,
+            TimeUnit.MILLISECONDS
+        )
+    }
 
-                val tickers =
-                    RevolutApi.getTickers()
+    private fun performScan() {
 
-                ScannerStatus.scanSuccessful(
-                    tickers.size
-                )
+        if (stopped) {
+            return
+        }
 
-                for (ticker in tickers) {
+        try {
 
-                    if (PumpHistory.isTracking(ticker.symbol)) {
-                        PumpHistory.addPrice(
-                            symbol = ticker.symbol,
-                            price = ticker.lastPrice
-                        )
-                    }
+            val tickers =
+                RevolutApi.getTickers()
 
-                    val exitSignal =
-                        ExitEngine.updatePrice(
-                            symbol = ticker.symbol,
-                            price = ticker.lastPrice
-                        )
+            ScannerStatus.scanSuccessful(
+                tickers.size
+            )
 
-                    if (exitSignal != null) {
-                        handleExitSignal(exitSignal)
-                    }
+            currentBackoffMs =
+                NORMAL_SCAN_DELAY_MS
 
-                    val pumpSignal =
-                        PumpEngine.addPrice(
-                            symbol = ticker.symbol,
-                            price = ticker.lastPrice
-                        )
+            for (ticker in tickers) {
 
-                    if (pumpSignal != null) {
+                if (
+                    PumpHistory.isTracking(
+                        ticker.symbol
+                    )
+                ) {
 
-                        ExitEngine.registerPump(
-                            pumpSignal
-                        )
-
-                        PumpHistory.startTracking(
-                            symbol = pumpSignal.symbol,
-                            price = pumpSignal.currentPrice
-                        )
-
-                        handlePumpSignal(
-                            pumpSignal
-                        )
-                    }
+                    PumpHistory.addPrice(
+                        symbol = ticker.symbol,
+                        price = ticker.lastPrice
+                    )
                 }
 
-            } catch (e: Exception) {
+                val exitSignal =
+                    ExitEngine.updatePrice(
+                        symbol = ticker.symbol,
+                        price = ticker.lastPrice
+                    )
 
-                ScannerStatus.scanFailed(e)
+                if (exitSignal != null) {
+                    handleExitSignal(
+                        exitSignal
+                    )
+                }
 
-                e.printStackTrace()
+                val pumpSignal =
+                    PumpEngine.addPrice(
+                        symbol = ticker.symbol,
+                        price = ticker.lastPrice
+                    )
+
+                if (pumpSignal != null) {
+
+                    ExitEngine.registerPump(
+                        pumpSignal
+                    )
+
+                    PumpHistory.startTracking(
+                        symbol = pumpSignal.symbol,
+                        price = pumpSignal.currentPrice
+                    )
+
+                    handlePumpSignal(
+                        pumpSignal
+                    )
+                }
             }
 
-        }, 0, 60, TimeUnit.SECONDS)
+            scheduleNextScan(
+                NORMAL_SCAN_DELAY_MS
+            )
+
+        } catch (
+            e: RevolutRateLimitException
+        ) {
+
+            ScannerStatus.scanFailed(e)
+
+            val serverWait =
+                e.retryAfterMs
+
+            val calculatedBackoff =
+                maxOf(
+                    serverWait + 5_000L,
+                    currentBackoffMs * 2
+                )
+
+            currentBackoffMs =
+                min(
+                    calculatedBackoff,
+                    MAX_BACKOFF_MS
+                )
+
+            scheduleNextScan(
+                currentBackoffMs
+            )
+
+        } catch (
+            e: Exception
+        ) {
+
+            ScannerStatus.scanFailed(e)
+
+            currentBackoffMs =
+                min(
+                    currentBackoffMs * 2,
+                    MAX_BACKOFF_MS
+                )
+
+            scheduleNextScan(
+                currentBackoffMs
+            )
+        }
     }
 
     private fun handlePumpSignal(
@@ -125,16 +200,23 @@ class ScannerService : Service() {
             System.currentTimeMillis()
 
         val lastAlert =
-            lastPumpAlertTime[signal.symbol] ?: 0L
+            lastPumpAlertTime[
+                signal.symbol
+            ] ?: 0L
 
         val cooldown =
             15 * 60 * 1000L
 
-        if (now - lastAlert < cooldown) {
+        if (
+            now - lastAlert <
+            cooldown
+        ) {
             return
         }
 
-        lastPumpAlertTime[signal.symbol] = now
+        lastPumpAlertTime[
+            signal.symbol
+        ] = now
 
         val notification =
             NotificationCompat.Builder(
@@ -173,7 +255,9 @@ class ScannerService : Service() {
         signal: ExitSignal
     ) {
 
-        if (signal.exitScore < 50) {
+        if (
+            signal.exitScore < 50
+        ) {
             return
         }
 
@@ -181,16 +265,23 @@ class ScannerService : Service() {
             System.currentTimeMillis()
 
         val lastAlert =
-            lastExitAlertTime[signal.symbol] ?: 0L
+            lastExitAlertTime[
+                signal.symbol
+            ] ?: 0L
 
         val cooldown =
             10 * 60 * 1000L
 
-        if (now - lastAlert < cooldown) {
+        if (
+            now - lastAlert <
+            cooldown
+        ) {
             return
         }
 
-        lastExitAlertTime[signal.symbol] = now
+        lastExitAlertTime[
+            signal.symbol
+        ] = now
 
         val notification =
             NotificationCompat.Builder(
@@ -239,7 +330,8 @@ class ScannerService : Service() {
 
     private fun createNotificationChannels() {
 
-        if (Build.VERSION.SDK_INT >=
+        if (
+            Build.VERSION.SDK_INT >=
             Build.VERSION_CODES.O
         ) {
 
@@ -269,15 +361,28 @@ class ScannerService : Service() {
                     NotificationManager::class.java
                 )
 
-            manager.createNotificationChannel(scannerChannel)
-            manager.createNotificationChannel(pumpChannel)
-            manager.createNotificationChannel(exitChannel)
+            manager.createNotificationChannel(
+                scannerChannel
+            )
+
+            manager.createNotificationChannel(
+                pumpChannel
+            )
+
+            manager.createNotificationChannel(
+                exitChannel
+            )
         }
     }
 
     override fun onDestroy() {
+
+        stopped = true
+
         ScannerStatus.scannerStopped()
+
         scheduler.shutdownNow()
+
         super.onDestroy()
     }
 
@@ -286,12 +391,14 @@ class ScannerService : Service() {
         flags: Int,
         startId: Int
     ): Int {
+
         return START_STICKY
     }
 
     override fun onBind(
         intent: Intent?
     ): IBinder? {
+
         return null
     }
 }
