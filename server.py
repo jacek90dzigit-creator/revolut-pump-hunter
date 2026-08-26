@@ -13,6 +13,8 @@ BINANCE_EXCHANGE_INFO_URL = "https://data-api.binance.vision/api/v3/exchangeInfo
 BINANCE_WS_URL = "wss://data-stream.binance.vision:443/ws"
 BYBIT_INSTRUMENTS_URL = "https://api.bybit.com/v5/market/instruments-info"
 BYBIT_WS_URL = "wss://stream.bybit.com/v5/public/spot"
+GATE_CURRENCY_PAIRS_URL = "https://api.gateio.ws/api/v4/spot/currency_pairs"
+GATE_WS_URL = "wss://api.gateio.ws/ws/v4/"
 
 WHITELIST_REFRESH_SECONDS = 6 * 60 * 60
 HISTORY_SECONDS = 31 * 60
@@ -28,7 +30,7 @@ WINDOWS = {
 
 QUOTE_PRIORITY = ["USDT", "USDC", "FDUSD", "BTC", "ETH"]
 
-app = FastAPI(title="Pump Hunter Server", version="2.2")
+app = FastAPI(title="Pump Hunter Server", version="2.3")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -48,6 +50,11 @@ state: Dict[str, object] = {
     "bybit_last_error": None,
     "bybit_mapped_assets": 0,
     "bybit_symbols": [],
+    "gate_connected": False,
+    "gate_last_event": 0,
+    "gate_last_error": None,
+    "gate_mapped_assets": 0,
+    "gate_symbols": [],
     "total_fast_feed_assets": 0,
     "unmatched_assets": [],
 }
@@ -64,6 +71,8 @@ binance_symbol_to_asset: Dict[str, str] = {}
 binance_streams: List[str] = []
 bybit_symbol_to_asset: Dict[str, str] = {}
 bybit_topics: List[str] = []
+gate_symbol_to_asset: Dict[str, str] = {}
+gate_pairs: List[str] = []
 
 
 def pct_change(current: float, old: float) -> float:
@@ -201,7 +210,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.2",
+            "User-Agent": "PumpHunterServer/2.3",
         },
     )
 
@@ -363,6 +372,41 @@ def build_bybit_mapping() -> None:
     state["unmatched_assets"] = unmatched
 
 
+
+def build_gate_mapping() -> None:
+    global gate_symbol_to_asset, gate_pairs
+    whitelist = set(state.get("assets", []))
+    already_mapped = set(binance_symbol_to_asset.values()) | set(bybit_symbol_to_asset.values())
+    missing = whitelist - already_mapped
+    response = requests.get(GATE_CURRENCY_PAIRS_URL, timeout=30)
+    response.raise_for_status()
+    candidates: Dict[str, Dict[str, str]] = {}
+    for item in response.json():
+        if str(item.get("trade_status", "")).lower() != "tradable":
+            continue
+        base = str(item.get("base", "")).upper()
+        quote = str(item.get("quote", "")).upper()
+        pair_id = str(item.get("id", "")).upper()
+        if base not in missing or quote not in QUOTE_PRIORITY:
+            continue
+        candidates.setdefault(base, {})[quote] = pair_id
+    mapping: Dict[str, str] = {}
+    pairs: List[str] = []
+    for asset in sorted(missing):
+        quote_map = candidates.get(asset, {})
+        selected = next((quote_map[q] for q in QUOTE_PRIORITY if q in quote_map), None)
+        if selected:
+            mapping[selected] = asset
+            pairs.append(selected)
+    gate_symbol_to_asset = mapping
+    gate_pairs = pairs
+    state["gate_mapped_assets"] = len(mapping)
+    state["gate_symbols"] = sorted(mapping.keys())
+    combined = set(binance_symbol_to_asset.values()) | set(bybit_symbol_to_asset.values()) | set(mapping.values())
+    state["total_fast_feed_assets"] = len(combined)
+    state["unmatched_assets"] = sorted(whitelist - combined)
+
+
 async def rebuild_mappings() -> None:
     try:
         build_binance_mapping()
@@ -375,6 +419,12 @@ async def rebuild_mappings() -> None:
         state["bybit_last_error"] = None
     except Exception as exc:
         state["bybit_last_error"] = f"mapping: {exc}"
+
+    try:
+        build_gate_mapping()
+        state["gate_last_error"] = None
+    except Exception as exc:
+        state["gate_last_error"] = f"mapping: {exc}"
 
 
 async def whitelist_refresh_loop() -> None:
@@ -518,6 +568,49 @@ async def bybit_fast_feed_loop() -> None:
             await asyncio.sleep(5)
 
 
+
+async def gate_fast_feed_loop() -> None:
+    while True:
+        try:
+            if not gate_pairs:
+                await asyncio.sleep(10)
+                continue
+            state["gate_connected"] = False
+            async with websockets.connect(
+                GATE_WS_URL, ping_interval=20, ping_timeout=60,
+                close_timeout=10, max_size=2_000_000
+            ) as ws:
+                await ws.send(json.dumps({
+                    "time": int(time.time()),
+                    "channel": "spot.tickers",
+                    "event": "subscribe",
+                    "payload": gate_pairs,
+                }))
+                state["gate_connected"] = True
+                state["gate_last_error"] = None
+                async for raw in ws:
+                    message = json.loads(raw)
+                    if message.get("channel") != "spot.tickers" or message.get("event") != "update":
+                        continue
+                    data = message.get("result", {})
+                    if not isinstance(data, dict):
+                        continue
+                    pair = str(data.get("currency_pair", "")).upper()
+                    asset = gate_symbol_to_asset.get(pair)
+                    if not asset:
+                        continue
+                    try:
+                        price = float(data.get("last", 0))
+                    except (TypeError, ValueError):
+                        continue
+                    state["gate_last_event"] = int(time.time())
+                    store_price(asset, "GATE", pair, price)
+        except Exception as exc:
+            state["gate_connected"] = False
+            state["gate_last_error"] = str(exc)
+            await asyncio.sleep(5)
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
     try:
@@ -531,13 +624,14 @@ async def startup_event() -> None:
     asyncio.create_task(whitelist_refresh_loop())
     asyncio.create_task(binance_fast_feed_loop())
     asyncio.create_task(bybit_fast_feed_loop())
+    asyncio.create_task(gate_fast_feed_loop())
 
 
 @app.get("/")
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.2",
+        "version": "2.3",
         "status": "running",
     }
 
@@ -556,6 +650,9 @@ def status() -> Dict[str, object]:
         "bybit_connected": state["bybit_connected"],
         "bybit_mapped_assets": state["bybit_mapped_assets"],
         "bybit_last_error": state["bybit_last_error"],
+        "gate_connected": state["gate_connected"],
+        "gate_mapped_assets": state["gate_mapped_assets"],
+        "gate_last_error": state["gate_last_error"],
         "total_fast_feed_assets": state["total_fast_feed_assets"],
         "unmatched_assets": len(state["unmatched_assets"]),
         "signal_count": len(signals),
@@ -568,6 +665,7 @@ def coverage() -> Dict[str, object]:
         "revolut_assets": state["revolut_asset_count"],
         "binance_assets": state["binance_mapped_assets"],
         "bybit_assets": state["bybit_mapped_assets"],
+        "gate_assets": state["gate_mapped_assets"],
         "total_fast_feed_assets": state["total_fast_feed_assets"],
         "unmatched_count": len(state["unmatched_assets"]),
         "unmatched_assets": state["unmatched_assets"],
