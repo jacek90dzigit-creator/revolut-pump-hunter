@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -17,6 +19,17 @@ import androidx.core.content.ContextCompat
 class MainActivity : AppCompatActivity() {
 
     private lateinit var contentBox: LinearLayout
+
+    private val handler = Handler(Looper.getMainLooper())
+
+    private var currentTab = "PUMP"
+
+    private val refreshRunnable = object : Runnable {
+        override fun run() {
+            refreshCurrentTab()
+            handler.postDelayed(this, 20000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,6 +104,7 @@ class MainActivity : AppCompatActivity() {
 
         root.addView(title)
         root.addView(tabs)
+
         root.addView(
             scrollView,
             LinearLayout.LayoutParams(
@@ -103,18 +117,41 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
 
         pumpButton.setOnClickListener {
+            currentTab = "PUMP"
             showPumpTab()
         }
 
         activeButton.setOnClickListener {
+            currentTab = "ACTIVE"
             showActiveTab()
         }
 
         exitButton.setOnClickListener {
+            currentTab = "EXIT"
             showExitTab()
         }
 
         showPumpTab()
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        handler.removeCallbacks(refreshRunnable)
+        handler.post(refreshRunnable)
+    }
+
+    override fun onStop() {
+        handler.removeCallbacks(refreshRunnable)
+        super.onStop()
+    }
+
+    private fun refreshCurrentTab() {
+        when (currentTab) {
+            "ACTIVE" -> showActiveTab()
+            "EXIT" -> showExitTab()
+            else -> showPumpTab()
+        }
     }
 
     private fun showPumpTab() {
@@ -132,6 +169,10 @@ class MainActivity : AppCompatActivity() {
 
         addText(
             "Po wykryciu ruchu token automatycznie trafia do zakładki AKTYWNE."
+        )
+
+        addText(
+            "Ekran odświeża się automatycznie co 20 sekund."
         )
     }
 
@@ -177,7 +218,9 @@ class MainActivity : AppCompatActivity() {
             )
 
             val history =
-                PumpHistory.getHistory(pump.symbol)
+                PumpHistory.getHistory(
+                    pump.symbol
+                )
 
             val chart =
                 PumpChartView(this).apply {
@@ -190,7 +233,12 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     600
                 ).apply {
-                    setMargins(0, 8, 0, 32)
+                    setMargins(
+                        0,
+                        8,
+                        0,
+                        32
+                    )
                 }
             )
         }
@@ -201,9 +249,14 @@ class MainActivity : AppCompatActivity() {
 
         addSectionTitle("🚪 EXIT SIGNAL")
 
-        val pumps = ExitEngine.getActivePumps()
-            .filter { it.exitScore >= 50 }
-            .sortedByDescending { it.exitScore }
+        val pumps =
+            ExitEngine.getActivePumps()
+                .filter {
+                    it.exitScore >= 50
+                }
+                .sortedByDescending {
+                    it.exitScore
+                }
 
         if (pumps.isEmpty()) {
             addText("Brak aktywnych sygnałów wyjścia.")
@@ -221,7 +274,9 @@ class MainActivity : AppCompatActivity() {
             )
 
             val history =
-                PumpHistory.getHistory(pump.symbol)
+                PumpHistory.getHistory(
+                    pump.symbol
+                )
 
             val chart =
                 PumpChartView(this).apply {
@@ -234,7 +289,12 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     500
                 ).apply {
-                    setMargins(0, 8, 0, 32)
+                    setMargins(
+                        0,
+                        8,
+                        0,
+                        32
+                    )
                 }
             )
         }
@@ -260,15 +320,26 @@ class MainActivity : AppCompatActivity() {
         contentBox.addView(view)
     }
 
-    private fun formatPrice(price: Double): String {
+    private fun formatPrice(
+        price: Double
+    ): String {
+
         return when {
-            price >= 1000 -> "%.2f".format(price)
-            price >= 1 -> "%.4f".format(price)
-            else -> "%.8f".format(price)
+            price >= 1000 ->
+                "%.2f".format(price)
+
+            price >= 1 ->
+                "%.4f".format(price)
+
+            else ->
+                "%.8f".format(price)
         }
     }
 
-    private fun formatPercent(value: Double): String {
+    private fun formatPercent(
+        value: Double
+    ): String {
+
         return if (value >= 0) {
             "+${"%.2f".format(value)}%"
         } else {
@@ -278,7 +349,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun startScannerService() {
         val serviceIntent =
-            Intent(this, ScannerService::class.java)
+            Intent(
+                this,
+                ScannerService::class.java
+            )
 
         ContextCompat.startForegroundService(
             this,
@@ -288,7 +362,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestNotificationPermission() {
 
-        if (Build.VERSION.SDK_INT >=
+        if (
+            Build.VERSION.SDK_INT >=
             Build.VERSION_CODES.TIRAMISU
         ) {
 
