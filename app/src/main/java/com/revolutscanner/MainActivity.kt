@@ -175,6 +175,24 @@ class MainActivity : AppCompatActivity() {
                     "Exit Score: ${pump.exitScore}/100\n" +
                     "Status: ${pump.status}"
             )
+
+            val history =
+                PumpHistory.getHistory(pump.symbol)
+
+            val chart =
+                PumpChartView(this).apply {
+                    setHistory(history)
+                }
+
+            contentBox.addView(
+                chart,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    600
+                ).apply {
+                    setMargins(0, 8, 0, 32)
+                }
+            )
         }
     }
 
@@ -188,4 +206,107 @@ class MainActivity : AppCompatActivity() {
             .sortedByDescending { it.exitScore }
 
         if (pumps.isEmpty()) {
-            addText("Brak aktywnych sygnałów wy
+            addText("Brak aktywnych sygnałów wyjścia.")
+            return
+        }
+
+        for (pump in pumps) {
+
+            addText(
+                "${pump.symbol}\n" +
+                    "Exit Score: ${pump.exitScore}/100\n" +
+                    "Aktualna cena: ${formatPrice(pump.currentPrice)}\n" +
+                    "Szczyt: ${formatPrice(pump.peakPrice)}\n" +
+                    "Status: ${pump.status}"
+            )
+
+            val history =
+                PumpHistory.getHistory(pump.symbol)
+
+            val chart =
+                PumpChartView(this).apply {
+                    setHistory(history)
+                }
+
+            contentBox.addView(
+                chart,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    500
+                ).apply {
+                    setMargins(0, 8, 0, 32)
+                }
+            )
+        }
+    }
+
+    private fun addSectionTitle(text: String) {
+        val view = TextView(this).apply {
+            this.text = text
+            textSize = 22f
+            setPadding(0, 8, 0, 20)
+        }
+
+        contentBox.addView(view)
+    }
+
+    private fun addText(text: String) {
+        val view = TextView(this).apply {
+            this.text = text
+            textSize = 17f
+            setPadding(12, 12, 12, 24)
+        }
+
+        contentBox.addView(view)
+    }
+
+    private fun formatPrice(price: Double): String {
+        return when {
+            price >= 1000 -> "%.2f".format(price)
+            price >= 1 -> "%.4f".format(price)
+            else -> "%.8f".format(price)
+        }
+    }
+
+    private fun formatPercent(value: Double): String {
+        return if (value >= 0) {
+            "+${"%.2f".format(value)}%"
+        } else {
+            "${"%.2f".format(value)}%"
+        }
+    }
+
+    private fun startScannerService() {
+        val serviceIntent =
+            Intent(this, ScannerService::class.java)
+
+        ContextCompat.startForegroundService(
+            this,
+            serviceIntent
+        )
+    }
+
+    private fun requestNotificationPermission() {
+
+        if (Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.TIRAMISU
+        ) {
+
+            if (
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ),
+                    1001
+                )
+            }
+        }
+    }
+}
