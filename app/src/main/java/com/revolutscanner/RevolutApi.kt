@@ -11,6 +11,12 @@ data class RevolutTicker(
     val askPrice: Double
 )
 
+class RevolutRateLimitException(
+    val retryAfterMs: Long
+) : Exception(
+    "Revolut API limit. Ponowna próba za ${retryAfterMs} ms"
+)
+
 object RevolutApi {
 
     private const val BASE_URL =
@@ -19,47 +25,112 @@ object RevolutApi {
     fun getTickers(): List<RevolutTicker> {
 
         val url = URL(BASE_URL)
-        val connection = url.openConnection() as HttpURLConnection
+
+        val connection =
+            url.openConnection() as HttpURLConnection
 
         connection.requestMethod = "GET"
         connection.connectTimeout = 10_000
         connection.readTimeout = 10_000
 
-        try {
-            val responseCode = connection.responseCode
+        connection.setRequestProperty(
+            "Accept",
+            "application/json"
+        )
 
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                throw Exception("Błąd Revolut API: HTTP $responseCode")
+        connection.setRequestProperty(
+            "User-Agent",
+            "RevolutPumpHunter/1.0"
+        )
+
+        try {
+
+            val responseCode =
+                connection.responseCode
+
+            if (responseCode == 429) {
+
+                val retryAfter =
+                    connection.getHeaderField(
+                        "Retry-After"
+                    )
+                        ?.trim()
+                        ?.toLongOrNull()
+                        ?: 60_000L
+
+                throw RevolutRateLimitException(
+                    retryAfterMs =
+                        retryAfter.coerceAtLeast(1_000L)
+                )
             }
 
-            val response = connection.inputStream
-                .bufferedReader()
-                .use { it.readText() }
+            if (
+                responseCode !=
+                HttpURLConnection.HTTP_OK
+            ) {
 
-            val json = JSONObject(response)
-            val data = json.getJSONArray("data")
+                throw Exception(
+                    "Błąd Revolut API: HTTP $responseCode"
+                )
+            }
 
-            val result = mutableListOf<RevolutTicker>()
+            val response =
+                connection.inputStream
+                    .bufferedReader()
+                    .use {
+                        it.readText()
+                    }
 
-            for (i in 0 until data.length()) {
+            val json =
+                JSONObject(response)
 
-                val item = data.getJSONObject(i)
+            val data =
+                json.getJSONArray("data")
 
-                val symbol = item.optString("symbol")
+            val result =
+                mutableListOf<RevolutTicker>()
+
+            for (
+                i in 0 until data.length()
+            ) {
+
+                val item =
+                    data.getJSONObject(i)
+
+                val symbol =
+                    item.optString(
+                        "symbol"
+                    )
 
                 val lastPrice =
-                    item.optString("last_price", "0")
-                        .toDoubleOrNull() ?: 0.0
+                    item.optString(
+                        "last_price",
+                        "0"
+                    )
+                        .toDoubleOrNull()
+                        ?: 0.0
 
                 val bidPrice =
-                    item.optString("bid_price", "0")
-                        .toDoubleOrNull() ?: 0.0
+                    item.optString(
+                        "bid_price",
+                        "0"
+                    )
+                        .toDoubleOrNull()
+                        ?: 0.0
 
                 val askPrice =
-                    item.optString("ask_price", "0")
-                        .toDoubleOrNull() ?: 0.0
+                    item.optString(
+                        "ask_price",
+                        "0"
+                    )
+                        .toDoubleOrNull()
+                        ?: 0.0
 
-                if (symbol.isNotBlank() && lastPrice > 0) {
+                if (
+                    symbol.isNotBlank() &&
+                    lastPrice > 0.0
+                ) {
+
                     result.add(
                         RevolutTicker(
                             symbol = symbol,
@@ -74,6 +145,7 @@ object RevolutApi {
             return result
 
         } finally {
+
             connection.disconnect()
         }
     }
