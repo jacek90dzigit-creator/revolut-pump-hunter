@@ -61,7 +61,15 @@ class ScannerService : Service() {
 
                 for (ticker in tickers) {
 
-                    // 1. Aktualizujemy już aktywne pumpy
+                    // 1. Aktualizacja aktywnego pumpa i historii
+                    if (PumpHistory.isTracking(ticker.symbol)) {
+                        PumpHistory.addPrice(
+                            symbol = ticker.symbol,
+                            price = ticker.lastPrice
+                        )
+                    }
+
+                    // 2. Sprawdzamy, czy aktywny pump daje sygnał wyjścia
                     val exitSignal =
                         ExitEngine.updatePrice(
                             symbol = ticker.symbol,
@@ -72,7 +80,7 @@ class ScannerService : Service() {
                         handleExitSignal(exitSignal)
                     }
 
-                    // 2. Szukamy nowych pumpów
+                    // 3. Szukamy nowych pumpów
                     val pumpSignal =
                         PumpEngine.addPrice(
                             symbol = ticker.symbol,
@@ -81,9 +89,15 @@ class ScannerService : Service() {
 
                     if (pumpSignal != null) {
 
-                        // Rejestrujemy pump do dalszej obserwacji
+                        // Rejestrujemy pump do obserwacji exitu
                         ExitEngine.registerPump(
                             pumpSignal
+                        )
+
+                        // Rozpoczynamy historię cen dla tego pumpa
+                        PumpHistory.startTracking(
+                            symbol = pumpSignal.symbol,
+                            price = pumpSignal.currentPrice
                         )
 
                         handlePumpSignal(
@@ -155,7 +169,6 @@ class ScannerService : Service() {
         signal: ExitSignal
     ) {
 
-        // Powiadomienie dopiero od EXIT WATCH
         if (signal.exitScore < 50) {
             return
         }
@@ -272,4 +285,16 @@ class ScannerService : Service() {
     }
 
     override fun onStartCommand(
-        intent: Intent
+        intent: Intent?,
+        flags: Int,
+        startId: Int
+    ): Int {
+        return START_STICKY
+    }
+
+    override fun onBind(
+        intent: Intent?
+    ): IBinder? {
+        return null
+    }
+}
