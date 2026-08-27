@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.8.2")
+app = FastAPI(title="Pump Hunter Server", version="2.8.3")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -156,6 +156,10 @@ PUMP_EMERGENCY_MIN_5M_PCT = -0.5
 REENTRY_MIN_QUALITY_SCORE = 65
 REENTRY_CONFIRM_SECONDS = 20
 REENTRY_MAX_EXIT_AGE_SECONDS = 20 * 60
+COOLING_REENTRY_MIN_QUALITY_SCORE = 65
+COOLING_REENTRY_CONFIRM_SECONDS = 15
+COOLING_REENTRY_MIN_M1_PCT = 1.5
+COOLING_REENTRY_MIN_M3_PCT = 0.5
 backfill_status: Dict[str, object] = {
     "running": False,
     "completed": False,
@@ -618,19 +622,21 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
 
     elif current == "COOLING":
         if state_age >= STATE_MIN_HOLD_SECONDS["COOLING"]:
-            # Strong recovery required to re-enter PUMP.
+            # A genuine second wave after cooling is a RE_ENTRY event.
             recovered = (
                 pump_raw
                 and pump_quality_ok
                 and accelerating
                 and not fading
                 and not reversal_bounce
-                and drawdown > -2.0
-                and momentum_score >= 45
+                and drawdown > -2.5
+                and quality_score >= COOLING_REENTRY_MIN_QUALITY_SCORE
+                and (m1 is not None and m1 >= COOLING_REENTRY_MIN_M1_PCT)
+                and (m3 is None or m3 >= COOLING_REENTRY_MIN_M3_PCT)
             )
             if recovered:
                 desired = "PUMP"
-                required_confirm = COOLING_TO_PUMP_CONFIRM_SECONDS
+                required_confirm = COOLING_REENTRY_CONFIRM_SECONDS
             elif state_age >= COOLING_CONFIRM_SECONDS:
                 exit_ready = (
                     drawdown <= -3.0
@@ -688,9 +694,10 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
     st["pending_since"] = 0.0
 
     signals.appendleft({
-        "type": "RE_ENTRY" if previous == "EXIT" and desired == "PUMP" else desired,
+        "type": "RE_ENTRY" if previous in ("COOLING", "EXIT") and desired == "PUMP" else desired,
         "engine_state": desired,
         "previous_state": previous,
+        "reentry_from": previous if previous in ("COOLING", "EXIT") and desired == "PUMP" else None,
         "asset": asset,
         "asset_name": asset_display_name(asset),
         "source": source,
@@ -768,7 +775,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.8.2",
+            "User-Agent": "PumpHunterServer/2.8.3",
         },
     )
 
@@ -1169,7 +1176,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.2"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.3"},
     )
     response.raise_for_status()
 
@@ -1337,7 +1344,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.2"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.3"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1976,7 +1983,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.8.2",
+        "version": "2.8.3",
         "status": "running",
     }
 
@@ -2201,6 +2208,16 @@ def quality_overview(limit: int = 30) -> Dict[str, object]:
     return {"count": len(rows), "top": rows[:safe_limit]}
 
 
+@app.get("/re-entries")
+def re_entries(limit: int = 50) -> Dict[str, object]:
+    safe_limit = max(1, min(limit, 200))
+    rows = [sig for sig in signals if sig.get("type") == "RE_ENTRY"]
+    return {
+        "count": len(rows),
+        "re_entries": rows[:safe_limit],
+    }
+
+
 @app.get("/signal-engine")
 def signal_engine() -> Dict[str, object]:
     counts = {"NORMAL": 0, "EARLY_MOVE": 0, "PUMP": 0, "COOLING": 0, "EXIT": 0}
@@ -2229,9 +2246,12 @@ def signal_engine() -> Dict[str, object]:
             })
 
     active.sort(key=lambda x: x.get("last_transition") or 0, reverse=True)
+    reentry_count = sum(1 for sig in signals if sig.get("type") == "RE_ENTRY")
+
     return {
         "states": counts,
         "active_count": len(active),
+        "reentry_count": reentry_count,
         "active": active,
     }
 
