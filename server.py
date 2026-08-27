@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.8.1")
+app = FastAPI(title="Pump Hunter Server", version="2.8.2")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -148,6 +148,14 @@ VOLUME_STRONG_RATIO = 2.25
 VOLUME_RATIO_CAP = 5.0
 VOLUME_LOW_BASELINE_FRACTION = 0.10
 MIN_PRICE_MOVE_FOR_VOLUME_BONUS_PCT = 0.35
+
+PUMP_MIN_QUALITY_SCORE = 45
+PUMP_EMERGENCY_1M_PCT = 5.0
+PUMP_EMERGENCY_MIN_3M_PCT = 0.0
+PUMP_EMERGENCY_MIN_5M_PCT = -0.5
+REENTRY_MIN_QUALITY_SCORE = 65
+REENTRY_CONFIRM_SECONDS = 20
+REENTRY_MAX_EXIT_AGE_SECONDS = 20 * 60
 backfill_status: Dict[str, object] = {
     "running": False,
     "completed": False,
@@ -397,8 +405,21 @@ def quality_metrics(
     low_baseline = bool(volume.get("low_baseline")) if volume.get("low_baseline") is not None else False
     volume_bonus_applied = False
 
+    bullish_impulse = max(
+        [x for x in (m1, m3, m5) if x is not None and x > 0],
+        default=0.0,
+    )
+
     if volume_ready and isinstance(volume_ratio, (int, float)):
-        if price_impulse >= MIN_PRICE_MOVE_FOR_VOLUME_BONUS_PCT and not low_baseline:
+        bullish_context = (
+            bullish_impulse >= MIN_PRICE_MOVE_FOR_VOLUME_BONUS_PCT
+            and (
+                (m1 is not None and m1 > 0)
+                or (m3 is not None and m3 > 0)
+            )
+        )
+
+        if bullish_context and not low_baseline:
             if volume_ratio >= VOLUME_STRONG_RATIO:
                 score += 18
                 volume_bonus_applied = True
@@ -407,7 +428,7 @@ def quality_metrics(
                 volume_bonus_applied = True
             elif volume_ratio < 0.75:
                 score -= 10
-        elif volume_ratio < 0.75 and price_impulse >= MIN_PRICE_MOVE_FOR_VOLUME_BONUS_PCT:
+        elif volume_ratio < 0.75 and bullish_impulse >= MIN_PRICE_MOVE_FOR_VOLUME_BONUS_PCT:
             score -= 6
 
     score = max(0, min(100, score))
@@ -429,6 +450,7 @@ def quality_metrics(
         "negative_short_windows": negative_short,
         "broad_trend_positive": broad_trend_positive,
         "price_impulse_pct": round(price_impulse, 4),
+        "bullish_impulse_pct": round(bullish_impulse, 4),
         "volume_ready": volume_ready,
         "volume_ratio": volume_ratio,
         "volume_ratio_raw": volume.get("volume_ratio_raw"),
@@ -509,10 +531,18 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
             or (m1 is not None and m1 >= 2.5 and (m3 is None or m3 > -0.75))
         )
     )
+    emergency_pump_ok = (
+        m1 is not None
+        and m1 >= PUMP_EMERGENCY_1M_PCT
+        and (m3 is None or m3 >= PUMP_EMERGENCY_MIN_3M_PCT)
+        and (m5 is None or m5 >= PUMP_EMERGENCY_MIN_5M_PCT)
+        and not reversal_bounce
+        and not fading
+    )
+
     pump_quality_ok = (
-        quality_score >= 50
-        or (m1 is not None and m1 >= 5.0)
-        or (m3 is not None and m3 >= 7.0)
+        quality_score >= PUMP_MIN_QUALITY_SCORE
+        or emergency_pump_ok
     )
 
     st = signal_state.setdefault(asset, {
@@ -611,8 +641,22 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
                     desired = "EXIT"
 
     elif current == "EXIT":
-        # EXIT stays sticky until the whole cycle resets.
-        desired = "EXIT"
+        exit_age = now - float(st.get("last_transition", 0.0))
+        reentry_ready = (
+            exit_age <= REENTRY_MAX_EXIT_AGE_SECONDS
+            and pump_raw
+            and accelerating
+            and not fading
+            and not reversal_bounce
+            and quality_score >= REENTRY_MIN_QUALITY_SCORE
+            and (m1 is not None and m1 >= 1.5)
+            and (m3 is None or m3 > 0.0)
+        )
+        if reentry_ready:
+            desired = "PUMP"
+            required_confirm = REENTRY_CONFIRM_SECONDS
+        else:
+            desired = "EXIT"
 
     # Confirmation window for noisy reversals.
     if desired != current and required_confirm > 0:
@@ -644,7 +688,8 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
     st["pending_since"] = 0.0
 
     signals.appendleft({
-        "type": desired,
+        "type": "RE_ENTRY" if previous == "EXIT" and desired == "PUMP" else desired,
+        "engine_state": desired,
         "previous_state": previous,
         "asset": asset,
         "asset_name": asset_display_name(asset),
@@ -671,6 +716,9 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         "volume_low_baseline": quality["volume_low_baseline"],
         "volume_bonus_applied": quality["volume_bonus_applied"],
         "price_impulse_pct": quality["price_impulse_pct"],
+        "bullish_impulse_pct": quality["bullish_impulse_pct"],
+        "pump_quality_ok": pump_quality_ok,
+        "emergency_pump_ok": emergency_pump_ok,
         "moves": moves,
         "cycle_started_at": int(float(st["started_at"])) if st["started_at"] else None,
         "peak_price": st["peak_price"],
@@ -720,7 +768,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.8.1",
+            "User-Agent": "PumpHunterServer/2.8.2",
         },
     )
 
@@ -1121,7 +1169,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.1"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.2"},
     )
     response.raise_for_status()
 
@@ -1289,7 +1337,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.1"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.2"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1928,7 +1976,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.8.1",
+        "version": "2.8.2",
         "status": "running",
     }
 
@@ -2139,6 +2187,7 @@ def quality_overview(limit: int = 30) -> Dict[str, object]:
             "quality": qm["quality"],
             "trend_aligned": qm["trend_aligned"],
             "price_impulse_pct": qm["price_impulse_pct"],
+            "bullish_impulse_pct": qm["bullish_impulse_pct"],
             "volume_ratio": qm["volume_ratio"],
             "volume_ratio_raw": qm["volume_ratio_raw"],
             "volume_confirmed": qm["volume_confirmed"],
@@ -2241,6 +2290,7 @@ def asset_status(asset: str) -> Dict[str, object]:
         "pump_score": pump_score(moves),
         "quality_score": current_quality["quality_score"],
         "quality": current_quality["quality"],
+        "bullish_impulse_pct": current_quality["bullish_impulse_pct"],
         "volume_ratio": current_quality["volume_ratio"],
         "volume_ratio_raw": current_quality["volume_ratio_raw"],
         "volume_confirmed": current_quality["volume_confirmed"],
