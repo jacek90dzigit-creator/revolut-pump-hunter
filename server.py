@@ -19,6 +19,10 @@ OKX_INSTRUMENTS_URL = "https://www.okx.com/api/v5/public/instruments"
 OKX_WS_URL = "wss://ws.okx.com:8443/ws/v5/public"
 KUCOIN_SYMBOLS_URL = "https://api.kucoin.com/api/v2/symbols"
 KUCOIN_BULLET_URL = "https://api.kucoin.com/api/v1/bullet-public"
+COINBASE_PRODUCTS_URL = "https://api.exchange.coinbase.com/products"
+COINBASE_WS_URL = "wss://advanced-trade-ws.coinbase.com"
+KRAKEN_ASSET_PAIRS_URL = "https://api.kraken.com/0/public/AssetPairs"
+KRAKEN_WS_URL = "wss://ws.kraken.com/v2"
 
 WHITELIST_REFRESH_SECONDS = 6 * 60 * 60
 HISTORY_SECONDS = 31 * 60
@@ -32,9 +36,25 @@ WINDOWS = {
     "30m": 1800,
 }
 
-QUOTE_PRIORITY = ["USDT", "USDC", "FDUSD", "BTC", "ETH"]
+QUOTE_PRIORITY = ["USDT", "USDC", "USD", "EUR", "FDUSD", "BTC", "ETH"]
 
-app = FastAPI(title="Pump Hunter Server", version="2.5")
+# Only safe same-asset ticker rebrands go here.
+# AERGO -> HPP was a 1:1 swap. TON -> GRAM is a ticker rebrand.
+ASSET_ALIASES = {
+    "AERGO": ["AERGO", "HPP"],
+    "TON": ["TON", "GRAM"],
+}
+
+def canonical_for_exchange_base(base: str, allowed_assets: set) -> Optional[str]:
+    base = base.upper()
+    if base in allowed_assets:
+        return base
+    for canonical, aliases in ASSET_ALIASES.items():
+        if canonical in allowed_assets and base in aliases:
+            return canonical
+    return None
+
+app = FastAPI(title="Pump Hunter Server", version="2.6")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -69,6 +89,16 @@ state: Dict[str, object] = {
     "kucoin_last_error": None,
     "kucoin_mapped_assets": 0,
     "kucoin_symbols": [],
+    "coinbase_connected": False,
+    "coinbase_last_event": 0,
+    "coinbase_last_error": None,
+    "coinbase_mapped_assets": 0,
+    "coinbase_symbols": [],
+    "kraken_connected": False,
+    "kraken_last_event": 0,
+    "kraken_last_error": None,
+    "kraken_mapped_assets": 0,
+    "kraken_symbols": [],
     "total_fast_feed_assets": 0,
     "unmatched_assets": [],
 }
@@ -91,6 +121,10 @@ okx_symbol_to_asset: Dict[str, str] = {}
 okx_args: List[dict] = []
 kucoin_symbol_to_asset: Dict[str, str] = {}
 kucoin_symbols: List[str] = []
+coinbase_symbol_to_asset: Dict[str, str] = {}
+coinbase_products: List[str] = []
+kraken_symbol_to_asset: Dict[str, str] = {}
+kraken_pairs: List[str] = []
 
 
 def pct_change(current: float, old: float) -> float:
@@ -277,10 +311,12 @@ def build_binance_mapping() -> None:
         quote = str(item.get("quoteAsset", "")).upper()
         symbol = str(item.get("symbol", "")).upper()
 
-        if base not in whitelist or quote not in QUOTE_PRIORITY:
+        if quote not in QUOTE_PRIORITY:
             continue
-
-        candidates.setdefault(base, {})[quote] = symbol
+        canonical = canonical_for_exchange_base(base, whitelist)
+        if canonical is None:
+            continue
+        candidates.setdefault(canonical, {})[quote] = symbol
 
     mapping: Dict[str, str] = {}
     streams: List[str] = []
@@ -355,10 +391,12 @@ def build_bybit_mapping() -> None:
         quote = str(item.get("quoteCoin", "")).upper()
         symbol = str(item.get("symbol", "")).upper()
 
-        if base not in missing or quote not in QUOTE_PRIORITY:
+        if quote not in QUOTE_PRIORITY:
             continue
-
-        candidates.setdefault(base, {})[quote] = symbol
+        canonical = canonical_for_exchange_base(base, missing)
+        if canonical is None:
+            continue
+        candidates.setdefault(canonical, {})[quote] = symbol
 
     mapping: Dict[str, str] = {}
     topics: List[str] = []
@@ -405,9 +443,12 @@ def build_gate_mapping() -> None:
         base = str(item.get("base", "")).upper()
         quote = str(item.get("quote", "")).upper()
         pair_id = str(item.get("id", "")).upper()
-        if base not in missing or quote not in QUOTE_PRIORITY:
+        if quote not in QUOTE_PRIORITY:
             continue
-        candidates.setdefault(base, {})[quote] = pair_id
+        canonical = canonical_for_exchange_base(base, missing)
+        if canonical is None:
+            continue
+        candidates.setdefault(canonical, {})[quote] = pair_id
     mapping: Dict[str, str] = {}
     pairs: List[str] = []
     for asset in sorted(missing):
@@ -534,10 +575,12 @@ def build_kucoin_mapping() -> None:
         quote = str(item.get("quoteCurrency", "")).upper()
         symbol = str(item.get("symbol", "")).upper()
 
-        if base not in missing or quote not in QUOTE_PRIORITY:
+        if quote not in QUOTE_PRIORITY:
             continue
-
-        candidates.setdefault(base, {})[quote] = symbol
+        canonical = canonical_for_exchange_base(base, missing)
+        if canonical is None:
+            continue
+        candidates.setdefault(canonical, {})[quote] = symbol
 
     mapping: Dict[str, str] = {}
     symbols: List[str] = []
@@ -603,6 +646,117 @@ def get_kucoin_ws_connection() -> tuple:
     return url, max(5.0, (ping_ms / 1000.0) * 0.75)
 
 
+
+def build_coinbase_mapping() -> None:
+    global coinbase_symbol_to_asset, coinbase_products
+
+    whitelist = set(state.get("assets", []))
+    already = (
+        set(binance_symbol_to_asset.values())
+        | set(bybit_symbol_to_asset.values())
+        | set(gate_symbol_to_asset.values())
+        | set(okx_symbol_to_asset.values())
+        | set(kucoin_symbol_to_asset.values())
+    )
+    missing = whitelist - already
+
+    response = requests.get(
+        COINBASE_PRODUCTS_URL,
+        timeout=30,
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6"},
+    )
+    response.raise_for_status()
+
+    candidates: Dict[str, Dict[str, str]] = {}
+    for item in response.json():
+        status = str(item.get("status", "")).lower()
+        if status and status not in ("online",):
+            continue
+        base = str(item.get("base_currency", "")).upper()
+        quote = str(item.get("quote_currency", "")).upper()
+        product_id = str(item.get("id", "")).upper()
+        if quote not in QUOTE_PRIORITY:
+            continue
+        canonical = canonical_for_exchange_base(base, missing)
+        if canonical is None:
+            continue
+        candidates.setdefault(canonical, {})[quote] = product_id
+
+    mapping: Dict[str, str] = {}
+    products: List[str] = []
+    for asset in sorted(missing):
+        quote_map = candidates.get(asset, {})
+        selected = next((quote_map[q] for q in QUOTE_PRIORITY if q in quote_map), None)
+        if selected:
+            mapping[selected] = asset
+            products.append(selected)
+
+    coinbase_symbol_to_asset = mapping
+    coinbase_products = products
+    state["coinbase_mapped_assets"] = len(mapping)
+    state["coinbase_symbols"] = sorted(mapping.keys())
+
+
+def build_kraken_mapping() -> None:
+    global kraken_symbol_to_asset, kraken_pairs
+
+    whitelist = set(state.get("assets", []))
+    already = (
+        set(binance_symbol_to_asset.values())
+        | set(bybit_symbol_to_asset.values())
+        | set(gate_symbol_to_asset.values())
+        | set(okx_symbol_to_asset.values())
+        | set(kucoin_symbol_to_asset.values())
+        | set(coinbase_symbol_to_asset.values())
+    )
+    missing = whitelist - already
+
+    response = requests.get(KRAKEN_ASSET_PAIRS_URL, timeout=30)
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("error"):
+        raise RuntimeError("Kraken AssetPairs error: " + str(payload["error"]))
+
+    candidates: Dict[str, Dict[str, str]] = {}
+    for item in payload.get("result", {}).values():
+        wsname = str(item.get("wsname", "") or "").upper()
+        if "/" not in wsname:
+            continue
+        base, quote = wsname.split("/", 1)
+        if quote not in QUOTE_PRIORITY:
+            continue
+        canonical = canonical_for_exchange_base(base, missing)
+        if canonical is None:
+            continue
+        candidates.setdefault(canonical, {})[quote] = wsname
+
+    mapping: Dict[str, str] = {}
+    pairs: List[str] = []
+    for asset in sorted(missing):
+        quote_map = candidates.get(asset, {})
+        selected = next((quote_map[q] for q in QUOTE_PRIORITY if q in quote_map), None)
+        if selected:
+            mapping[selected] = asset
+            pairs.append(selected)
+
+    kraken_symbol_to_asset = mapping
+    kraken_pairs = pairs
+    state["kraken_mapped_assets"] = len(mapping)
+    state["kraken_symbols"] = sorted(mapping.keys())
+
+    combined = (
+        set(binance_symbol_to_asset.values())
+        | set(bybit_symbol_to_asset.values())
+        | set(gate_symbol_to_asset.values())
+        | set(okx_symbol_to_asset.values())
+        | set(kucoin_symbol_to_asset.values())
+        | set(coinbase_symbol_to_asset.values())
+        | set(kraken_symbol_to_asset.values())
+    )
+    state["total_fast_feed_assets"] = len(combined)
+    state["unmatched_assets"] = sorted(whitelist - combined)
+
+
 async def rebuild_mappings() -> None:
     try:
         build_binance_mapping()
@@ -633,6 +787,18 @@ async def rebuild_mappings() -> None:
         state["kucoin_last_error"] = None
     except Exception as exc:
         state["kucoin_last_error"] = f"mapping: {exc}"
+
+    try:
+        build_coinbase_mapping()
+        state["coinbase_last_error"] = None
+    except Exception as exc:
+        state["coinbase_last_error"] = f"mapping: {exc}"
+
+    try:
+        build_kraken_mapping()
+        state["kraken_last_error"] = None
+    except Exception as exc:
+        state["kraken_last_error"] = f"mapping: {exc}"
 
 
 async def whitelist_refresh_loop() -> None:
@@ -998,6 +1164,98 @@ async def kucoin_fast_feed_loop() -> None:
             await asyncio.sleep(5)
 
 
+
+async def coinbase_fast_feed_loop() -> None:
+    while True:
+        try:
+            if not coinbase_products:
+                await asyncio.sleep(10)
+                continue
+            state["coinbase_connected"] = False
+            async with websockets.connect(
+                COINBASE_WS_URL, ping_interval=20, ping_timeout=60,
+                close_timeout=10, max_size=2_000_000
+            ) as ws:
+                await ws.send(json.dumps({
+                    "type": "subscribe",
+                    "product_ids": coinbase_products,
+                    "channel": "ticker",
+                }))
+                await ws.send(json.dumps({
+                    "type": "subscribe",
+                    "channel": "heartbeats",
+                }))
+                state["coinbase_connected"] = True
+                state["coinbase_last_error"] = None
+
+                async for raw in ws:
+                    message = json.loads(raw)
+                    if message.get("channel") != "ticker":
+                        continue
+                    for event in message.get("events", []):
+                        for ticker in event.get("tickers", []):
+                            product_id = str(ticker.get("product_id", "")).upper()
+                            asset = coinbase_symbol_to_asset.get(product_id)
+                            if not asset:
+                                continue
+                            try:
+                                price = float(ticker.get("price", 0))
+                            except (TypeError, ValueError):
+                                continue
+                            state["coinbase_last_event"] = int(time.time())
+                            store_price(asset, "COINBASE", product_id, price)
+        except Exception as exc:
+            state["coinbase_connected"] = False
+            state["coinbase_last_error"] = str(exc)
+            await asyncio.sleep(5)
+
+
+async def kraken_fast_feed_loop() -> None:
+    while True:
+        try:
+            if not kraken_pairs:
+                await asyncio.sleep(10)
+                continue
+            state["kraken_connected"] = False
+            async with websockets.connect(
+                KRAKEN_WS_URL, ping_interval=20, ping_timeout=60,
+                close_timeout=10, max_size=2_000_000
+            ) as ws:
+                await ws.send(json.dumps({
+                    "method": "subscribe",
+                    "params": {
+                        "channel": "ticker",
+                        "symbol": kraken_pairs,
+                        "snapshot": True,
+                    }
+                }))
+                state["kraken_connected"] = True
+                state["kraken_last_error"] = None
+
+                async for raw in ws:
+                    message = json.loads(raw)
+                    if message.get("channel") != "ticker":
+                        continue
+                    data = message.get("data", [])
+                    if not isinstance(data, list):
+                        continue
+                    for ticker in data:
+                        symbol = str(ticker.get("symbol", "")).upper()
+                        asset = kraken_symbol_to_asset.get(symbol)
+                        if not asset:
+                            continue
+                        try:
+                            price = float(ticker.get("last", 0))
+                        except (TypeError, ValueError):
+                            continue
+                        state["kraken_last_event"] = int(time.time())
+                        store_price(asset, "KRAKEN", symbol, price)
+        except Exception as exc:
+            state["kraken_connected"] = False
+            state["kraken_last_error"] = str(exc)
+            await asyncio.sleep(5)
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
     try:
@@ -1014,13 +1272,15 @@ async def startup_event() -> None:
     asyncio.create_task(gate_fast_feed_loop())
     asyncio.create_task(okx_fast_feed_loop())
     asyncio.create_task(kucoin_fast_feed_loop())
+    asyncio.create_task(coinbase_fast_feed_loop())
+    asyncio.create_task(kraken_fast_feed_loop())
 
 
 @app.get("/")
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.5",
+        "version": "2.6",
         "status": "running",
     }
 
@@ -1048,6 +1308,12 @@ def status() -> Dict[str, object]:
         "kucoin_connected": state["kucoin_connected"],
         "kucoin_mapped_assets": state["kucoin_mapped_assets"],
         "kucoin_last_error": state["kucoin_last_error"],
+        "coinbase_connected": state["coinbase_connected"],
+        "coinbase_mapped_assets": state["coinbase_mapped_assets"],
+        "coinbase_last_error": state["coinbase_last_error"],
+        "kraken_connected": state["kraken_connected"],
+        "kraken_mapped_assets": state["kraken_mapped_assets"],
+        "kraken_last_error": state["kraken_last_error"],
         "total_fast_feed_assets": state["total_fast_feed_assets"],
         "unmatched_assets": len(state["unmatched_assets"]),
         "signal_count": len(signals),
@@ -1063,6 +1329,8 @@ def coverage() -> Dict[str, object]:
         "gate_assets": state["gate_mapped_assets"],
         "okx_assets": state["okx_mapped_assets"],
         "kucoin_assets": state["kucoin_mapped_assets"],
+        "coinbase_assets": state["coinbase_mapped_assets"],
+        "kraken_assets": state["kraken_mapped_assets"],
         "total_fast_feed_assets": state["total_fast_feed_assets"],
         "unmatched_count": len(state["unmatched_assets"]),
         "unmatched_assets": state["unmatched_assets"],
