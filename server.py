@@ -54,7 +54,39 @@ def canonical_for_exchange_base(base: str, allowed_assets: set) -> Optional[str]
             return canonical
     return None
 
-app = FastAPI(title="Pump Hunter Server", version="2.6")
+
+# Human-readable names where we have a verified rename/rebrand.
+# Other assets safely fall back to their ticker until a dedicated metadata source is added.
+ASSET_DISPLAY_NAMES = {
+    "AERGO": "House Party Protocol (formerly Aergo)",
+    "TON": "Gram (formerly Toncoin)",
+}
+
+SOURCE_DISPLAY_NAMES = {
+    "BINANCE": "Binance",
+    "BYBIT": "Bybit",
+    "GATE": "Gate.io",
+    "OKX": "OKX",
+    "KUCOIN": "KuCoin",
+    "COINBASE": "Coinbase",
+    "KRAKEN": "Kraken",
+}
+
+def asset_display_name(asset: str) -> str:
+    symbol = asset.upper()
+    return ASSET_DISPLAY_NAMES.get(symbol, symbol)
+
+def source_display_name(source: Optional[str]) -> Optional[str]:
+    if source is None:
+        return None
+    return SOURCE_DISPLAY_NAMES.get(source.upper(), source)
+
+def change_pct(current: Optional[float], start: Optional[float]) -> Optional[float]:
+    if current is None or start is None or start <= 0:
+        return None
+    return round(((current - start) / start) * 100.0, 4)
+
+app = FastAPI(title="Pump Hunter Server", version="2.6.1")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -225,9 +257,12 @@ def detect_signal(
         {
             "type": kind,
             "asset": asset,
+            "asset_name": asset_display_name(asset),
             "source": source,
+            "source_name": source_display_name(source),
             "source_symbol": source_symbol,
             "price": price,
+            "signal_price": price,
             "pump_score": score,
             "moves": moves,
             "timestamp": int(now),
@@ -663,7 +698,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.1"},
     )
     response.raise_for_status()
 
@@ -1280,7 +1315,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.6",
+        "version": "2.6.1",
         "status": "running",
     }
 
@@ -1337,6 +1372,56 @@ def coverage() -> Dict[str, object]:
     }
 
 
+@app.get("/feed-health")
+def feed_health(stale_after: int = 120) -> Dict[str, object]:
+    now = time.time()
+    whitelist_assets = [str(a).upper() for a in state.get("assets", [])]
+
+    priced_assets = []
+    missing_price_assets = []
+    stale_assets = []
+    source_counts: Dict[str, int] = {}
+
+    for asset in whitelist_assets:
+        price = latest_prices.get(asset)
+        source = latest_sources.get(asset)
+
+        if price is None:
+            missing_price_assets.append(asset)
+            continue
+
+        priced_assets.append(asset)
+
+        if source:
+            source_counts[source] = source_counts.get(source, 0) + 1
+
+        history = price_history.get(asset)
+        last_tick = history[-1][0] if history else None
+        if last_tick is not None and now - last_tick > max(1, stale_after):
+            stale_assets.append(
+                {
+                    "asset": asset,
+                    "asset_name": asset_display_name(asset),
+                    "source": source,
+                    "source_name": source_display_name(source),
+                    "last_tick_age_seconds": round(now - last_tick, 1),
+                }
+            )
+
+    return {
+        "mapped_assets": state.get("total_fast_feed_assets", 0),
+        "whitelist_assets": len(whitelist_assets),
+        "priced_assets": len(priced_assets),
+        "missing_price_count": len(missing_price_assets),
+        "missing_price_assets": missing_price_assets,
+        "stale_after_seconds": max(1, stale_after),
+        "stale_count": len(stale_assets),
+        "stale_assets": stale_assets,
+        "source_price_counts": source_counts,
+        "signal_count": len(signals),
+    }
+
+
 @app.get("/whitelist")
 def whitelist() -> Dict[str, object]:
     return {
@@ -1348,10 +1433,48 @@ def whitelist() -> Dict[str, object]:
 @app.get("/signals")
 def get_signals(limit: int = 50) -> Dict[str, object]:
     safe_limit = max(1, min(limit, 200))
+    enriched = []
+
+    for raw in list(signals)[:safe_limit]:
+        item = dict(raw)
+        asset = str(item.get("asset", "")).upper()
+        signal_price = item.get("signal_price", item.get("price"))
+        current_price = latest_prices.get(asset)
+
+        item["asset_name"] = asset_display_name(asset)
+        item["source_name"] = source_display_name(item.get("source"))
+        item["signal_price"] = signal_price
+        item["current_price"] = current_price
+        item["change_since_signal_pct"] = change_pct(current_price, signal_price)
+        item["current_source"] = latest_sources.get(asset)
+        item["current_source_name"] = source_display_name(latest_sources.get(asset))
+        enriched.append(item)
+
     return {
         "count": len(signals),
-        "signals": list(signals)[:safe_limit],
+        "signals": enriched,
     }
+
+
+@app.get("/signal/{index}")
+def signal_detail(index: int) -> Dict[str, object]:
+    items = list(signals)
+    if index < 0 or index >= len(items):
+        return {"error": "signal_not_found", "index": index}
+
+    item = dict(items[index])
+    asset = str(item.get("asset", "")).upper()
+    signal_price = item.get("signal_price", item.get("price"))
+    current_price = latest_prices.get(asset)
+
+    item["asset_name"] = asset_display_name(asset)
+    item["source_name"] = source_display_name(item.get("source"))
+    item["signal_price"] = signal_price
+    item["current_price"] = current_price
+    item["change_since_signal_pct"] = change_pct(current_price, signal_price)
+    item["current_source"] = latest_sources.get(asset)
+    item["current_source_name"] = source_display_name(latest_sources.get(asset))
+    return item
 
 
 @app.get("/asset/{asset}")
@@ -1369,8 +1492,10 @@ def asset_status(asset: str) -> Dict[str, object]:
 
     return {
         "asset": symbol,
+        "asset_name": asset_display_name(symbol),
         "price": price,
         "source": source,
+        "source_name": source_display_name(source),
         "moves": moves,
         "pump_score": pump_score(moves),
         "tracked": symbol in price_history,
