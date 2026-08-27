@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.6.2-hotfix")
+app = FastAPI(title="Pump Hunter Server", version="2.7")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -152,6 +152,9 @@ latest_sources: Dict[str, str] = {}
 signals: deque = deque(maxlen=300)
 last_early_alert: Dict[str, float] = {}
 last_pump_alert: Dict[str, float] = {}
+signal_state: Dict[str, Dict[str, object]] = {}
+SIGNAL_RESET_SECONDS = 15 * 60
+COOLING_CONFIRM_SECONDS = 90
 
 binance_symbol_to_asset: Dict[str, str] = {}
 binance_streams: List[str] = []
@@ -220,27 +223,16 @@ def pump_score(moves: Dict[str, Optional[float]]) -> int:
     return min(score, 100)
 
 
-def detect_signal(
-    asset: str,
-    source: str,
-    source_symbol: str,
-    price: float,
-    moves: Dict[str, Optional[float]],
-    now: float,
-) -> None:
-    m1 = moves.get("1m")
-    m3 = moves.get("3m")
-    m5 = moves.get("5m")
-    m10 = moves.get("10m")
-    m30 = moves.get("30m")
+def detect_signal(asset: str, source: str, source_symbol: str, price: float,
+                  moves: Dict[str, Optional[float]], now: float) -> None:
+    m1, m3, m5, m10, m30 = [moves.get(k) for k in ("1m", "3m", "5m", "10m", "30m")]
 
-    early = (
+    early_raw = (
         (m1 is not None and m1 >= 1.5)
         or (m3 is not None and m3 >= 2.0)
         or (m5 is not None and m5 >= 3.0)
     )
-
-    pump = (
+    pump_raw = (
         (m1 is not None and m1 >= 3.0)
         or (m3 is not None and m3 >= 4.0)
         or (m5 is not None and m5 >= 4.5)
@@ -248,59 +240,111 @@ def detect_signal(
         or (m30 is not None and m30 >= 5.0)
     )
 
-    score = pump_score(moves)
-
-    if pump:
-        if now - last_pump_alert.get(asset, 0) < 900:
-            return
-        last_pump_alert[asset] = now
-        kind = "PUMP"
-    elif early:
-        if now - last_early_alert.get(asset, 0) < 300:
-            return
-        last_early_alert[asset] = now
-        kind = "EARLY_MOVE"
-    else:
-        return
-
-    signals.appendleft(
-        {
-            "type": kind,
-            "asset": asset,
-            "asset_name": asset_display_name(asset),
-            "source": source,
-            "source_name": source_display_name(source),
-            "source_symbol": source_symbol,
-            "price": price,
-            "signal_price": price,
-            "pump_score": score,
-            "moves": moves,
-            "timestamp": int(now),
-        }
+    # Momentum asks a different question than raw % move:
+    # is the move still pushing, or are we looking at the tail of an old spike?
+    positive_short = sum(1 for x in (m1, m3, m5) if x is not None and x > 0)
+    fading = (
+        (m5 is not None and m5 >= 3.0)
+        and (m3 is not None and m3 <= 0.0)
+        and (m1 is None or m1 < 1.0)
+    )
+    accelerating = (
+        (m1 is not None and m1 >= 1.0)
+        and (m3 is None or m3 > 0.0)
+        and positive_short >= 2
     )
 
+    score = pump_score(moves)
+    momentum_score = score
+    if accelerating:
+        momentum_score = min(100, momentum_score + 10)
+    if fading:
+        momentum_score = max(0, momentum_score - 25)
 
-def store_price(asset: str, source: str, source_symbol: str, price: float) -> None:
-    if price <= 0:
+    st = signal_state.setdefault(asset, {
+        "state": "NORMAL",
+        "started_at": 0.0,
+        "last_transition": 0.0,
+        "peak_price": price,
+        "peak_score": 0,
+        "last_price": price,
+        "source": source,
+        "source_symbol": source_symbol,
+    })
+
+    # Reset an old finished cycle so a genuinely new move can alert again.
+    if st["state"] in ("COOLING", "EXIT") and now - float(st["last_transition"]) >= SIGNAL_RESET_SECONDS:
+        st.update({
+            "state": "NORMAL",
+            "started_at": 0.0,
+            "last_transition": now,
+            "peak_price": price,
+            "peak_score": 0,
+        })
+
+    st["last_price"] = price
+    st["source"] = source
+    st["source_symbol"] = source_symbol
+    st["peak_price"] = max(float(st.get("peak_price", price)), price)
+    st["peak_score"] = max(int(st.get("peak_score", 0)), momentum_score)
+
+    current = str(st["state"])
+    target = current
+
+    if current == "NORMAL":
+        if pump_raw and not fading:
+            target = "PUMP"
+        elif early_raw and not fading:
+            target = "EARLY_MOVE"
+    elif current == "EARLY_MOVE":
+        if pump_raw and not fading:
+            target = "PUMP"
+        elif fading or ((m1 is not None and m1 < 0) and (m3 is not None and m3 <= 0)):
+            target = "COOLING"
+    elif current == "PUMP":
+        drawdown = ((price - float(st["peak_price"])) / float(st["peak_price"]) * 100.0) if float(st["peak_price"]) > 0 else 0.0
+        if fading or drawdown <= -2.0 or ((m1 is not None and m1 < -1.0) and (m3 is not None and m3 <= 0)):
+            target = "COOLING"
+    elif current == "COOLING":
+        drawdown = ((price - float(st["peak_price"])) / float(st["peak_price"]) * 100.0) if float(st["peak_price"]) > 0 else 0.0
+        if pump_raw and accelerating:
+            target = "PUMP"
+        elif now - float(st["last_transition"]) >= COOLING_CONFIRM_SECONDS and (
+            drawdown <= -3.0 or (m3 is not None and m3 < -1.0)
+        ):
+            target = "EXIT"
+
+    if target == current:
         return
 
-    now = time.time()
-    live_last_event[asset] = now
-    latest_prices[asset] = price
-    latest_sources[asset] = source
+    if current == "NORMAL":
+        st["started_at"] = now
+        st["peak_price"] = price
+        st["peak_score"] = momentum_score
 
-    history = price_history.setdefault(asset, deque(maxlen=2000))
+    st["state"] = target
+    st["last_transition"] = now
 
-    if now - last_sample_time.get(asset, 0.0) >= SAMPLE_EVERY_SECONDS:
-        history.append((now, price))
-        last_sample_time[asset] = now
-        cutoff = now - HISTORY_SECONDS
-        while history and history[0][0] < cutoff:
-            history.popleft()
-
-    moves = calculate_moves(asset, now, price)
-    detect_signal(asset, source, source_symbol, price, moves, now)
-
+    signals.appendleft({
+        "type": target,
+        "previous_state": current,
+        "asset": asset,
+        "asset_name": asset_display_name(asset),
+        "source": source,
+        "source_name": source_display_name(source),
+        "source_symbol": source_symbol,
+        "price": price,
+        "signal_price": price,
+        "pump_score": score,
+        "momentum_score": momentum_score,
+        "accelerating": accelerating,
+        "fading": fading,
+        "moves": moves,
+        "cycle_started_at": int(float(st["started_at"])) if st["started_at"] else None,
+        "peak_price": st["peak_price"],
+        "peak_score": st["peak_score"],
+        "timestamp": int(now),
+    })
 
 def refresh_revolut_whitelist() -> None:
     response = requests.get(
@@ -308,7 +352,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.6.2-hotfix",
+            "User-Agent": "PumpHunterServer/2.7",
         },
     )
 
@@ -709,7 +753,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.2-hotfix"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7"},
     )
     response.raise_for_status()
 
@@ -877,7 +921,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.2-hotfix"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1470,7 +1514,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.6.2-hotfix",
+        "version": "2.7",
         "status": "running",
     }
 
@@ -1628,6 +1672,39 @@ def get_signals(limit: int = 50) -> Dict[str, object]:
     }
 
 
+@app.get("/signal-engine")
+def signal_engine() -> Dict[str, object]:
+    counts = {"NORMAL": 0, "EARLY_MOVE": 0, "PUMP": 0, "COOLING": 0, "EXIT": 0}
+    active = []
+    whitelist_assets = [str(a).upper() for a in state.get("assets", [])]
+
+    for asset in whitelist_assets:
+        st = signal_state.get(asset)
+        current = str(st.get("state", "NORMAL")) if st else "NORMAL"
+        counts[current] = counts.get(current, 0) + 1
+        if st and current != "NORMAL":
+            active.append({
+                "asset": asset,
+                "asset_name": asset_display_name(asset),
+                "state": current,
+                "source": st.get("source"),
+                "source_name": source_display_name(st.get("source")),
+                "source_symbol": st.get("source_symbol"),
+                "started_at": int(float(st.get("started_at", 0))) if st.get("started_at") else None,
+                "last_transition": int(float(st.get("last_transition", 0))),
+                "peak_price": st.get("peak_price"),
+                "peak_score": st.get("peak_score"),
+                "current_price": latest_prices.get(asset),
+            })
+
+    active.sort(key=lambda x: x.get("last_transition") or 0, reverse=True)
+    return {
+        "states": counts,
+        "active_count": len(active),
+        "active": active,
+    }
+
+
 @app.get("/signal/{index}")
 def signal_detail(index: int) -> Dict[str, object]:
     items = list(signals)
@@ -1670,5 +1747,7 @@ def asset_status(asset: str) -> Dict[str, object]:
         "source_name": source_display_name(source),
         "moves": moves,
         "pump_score": pump_score(moves),
+        "signal_state": signal_state.get(symbol, {}).get("state", "NORMAL"),
+        "signal_cycle": signal_state.get(symbol),
         "tracked": symbol in price_history,
     }
