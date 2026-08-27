@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.7")
+app = FastAPI(title="Pump Hunter Server", version="2.7.1")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -346,13 +346,50 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         "timestamp": int(now),
     })
 
+
+def store_price(asset: str, source: str, source_symbol: str, price: float) -> None:
+    if price <= 0:
+        return
+
+    now = time.time()
+
+    # Real live websocket tick.
+    live_last_event[asset] = now
+
+    latest_prices[asset] = price
+    latest_sources[asset] = source
+
+    history = price_history.setdefault(asset, deque(maxlen=8000))
+
+    if now - last_sample_time.get(asset, 0.0) >= SAMPLE_EVERY_SECONDS:
+        history.append((now, price))
+        last_sample_time[asset] = now
+
+        cutoff = now - HISTORY_SECONDS
+        while history and history[0][0] < cutoff:
+            history.popleft()
+
+    moves = calculate_moves(asset, now, price)
+
+    # Signal Engine only reacts to live ticks, using the backfilled history
+    # as context for the 1m/3m/5m/10m/30m windows.
+    detect_signal(
+        asset=asset,
+        source=source,
+        source_symbol=source_symbol,
+        price=price,
+        moves=moves,
+        now=now,
+    )
+
+
 def refresh_revolut_whitelist() -> None:
     response = requests.get(
         REVOLUT_TICKERS_URL,
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.7",
+            "User-Agent": "PumpHunterServer/2.7.1",
         },
     )
 
@@ -753,7 +790,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7.1"},
     )
     response.raise_for_status()
 
@@ -921,7 +958,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7.1"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1514,7 +1551,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.7",
+        "version": "2.7.1",
         "status": "running",
     }
 
