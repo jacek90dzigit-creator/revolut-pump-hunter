@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.6.2")
+app = FastAPI(title="Pump Hunter Server", version="2.6.2-hotfix")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -285,6 +285,7 @@ def store_price(asset: str, source: str, source_symbol: str, price: float) -> No
         return
 
     now = time.time()
+    live_last_event[asset] = now
     latest_prices[asset] = price
     latest_sources[asset] = source
 
@@ -307,7 +308,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.5",
+            "User-Agent": "PumpHunterServer/2.6.2-hotfix",
         },
     )
 
@@ -708,7 +709,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.2"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.2-hotfix"},
     )
     response.raise_for_status()
 
@@ -820,7 +821,6 @@ def _seed_history(asset: str, source: str, source_symbol: str, candles: List[tup
         latest_ts, latest_price = history[-1]
         latest_prices[asset] = latest_price
         latest_sources[asset] = source
-        latest_source_symbols[asset] = source_symbol
         last_sample_time[asset] = latest_ts
     return added
 
@@ -877,7 +877,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.2"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.2-hotfix"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1470,7 +1470,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.6.2",
+        "version": "2.6.2-hotfix",
         "status": "running",
     }
 
