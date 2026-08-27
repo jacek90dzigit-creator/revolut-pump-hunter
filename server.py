@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.7.1")
+app = FastAPI(title="Pump Hunter Server", version="2.7.2")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -155,6 +155,18 @@ last_pump_alert: Dict[str, float] = {}
 signal_state: Dict[str, Dict[str, object]] = {}
 SIGNAL_RESET_SECONDS = 15 * 60
 COOLING_CONFIRM_SECONDS = 90
+
+# Signal stabilizer / hysteresis.
+STATE_MIN_HOLD_SECONDS = {
+    "EARLY_MOVE": 20,
+    "PUMP": 25,
+    "COOLING": 30,
+}
+PUMP_TO_COOLING_CONFIRM_SECONDS = 12
+COOLING_TO_PUMP_CONFIRM_SECONDS = 15
+EARLY_TO_COOLING_CONFIRM_SECONDS = 20
+REVERSAL_BLOCK_3M_PCT = -2.0
+REVERSAL_BLOCK_5M_PCT = -2.5
 
 binance_symbol_to_asset: Dict[str, str] = {}
 binance_streams: List[str] = []
@@ -240,8 +252,6 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         or (m30 is not None and m30 >= 5.0)
     )
 
-    # Momentum asks a different question than raw % move:
-    # is the move still pushing, or are we looking at the tail of an old spike?
     positive_short = sum(1 for x in (m1, m3, m5) if x is not None and x > 0)
     fading = (
         (m5 is not None and m5 >= 3.0)
@@ -254,12 +264,25 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         and positive_short >= 2
     )
 
+    # Block "bounce after dump" false positives:
+    # e.g. +1.5% in 1m while 3m/5m are still heavily negative.
+    reversal_bounce = (
+        (m1 is not None and m1 >= 1.0)
+        and (
+            (m3 is not None and m3 <= REVERSAL_BLOCK_3M_PCT)
+            or (m5 is not None and m5 <= REVERSAL_BLOCK_5M_PCT)
+        )
+    )
+
     score = pump_score(moves)
     momentum_score = score
+
     if accelerating:
         momentum_score = min(100, momentum_score + 10)
     if fading:
         momentum_score = max(0, momentum_score - 25)
+    if reversal_bounce:
+        momentum_score = max(0, momentum_score - 30)
 
     st = signal_state.setdefault(asset, {
         "state": "NORMAL",
@@ -270,17 +293,24 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         "last_price": price,
         "source": source,
         "source_symbol": source_symbol,
+        "pending_state": None,
+        "pending_since": 0.0,
     })
 
-    # Reset an old finished cycle so a genuinely new move can alert again.
-    if st["state"] in ("COOLING", "EXIT") and now - float(st["last_transition"]) >= SIGNAL_RESET_SECONDS:
+    current = str(st.get("state", "NORMAL"))
+
+    # Finished cycles can reset after a quiet period.
+    if current in ("COOLING", "EXIT") and now - float(st.get("last_transition", 0.0)) >= SIGNAL_RESET_SECONDS:
         st.update({
             "state": "NORMAL",
             "started_at": 0.0,
             "last_transition": now,
             "peak_price": price,
             "peak_score": 0,
+            "pending_state": None,
+            "pending_since": 0.0,
         })
+        current = "NORMAL"
 
     st["last_price"] = price
     st["source"] = source
@@ -288,46 +318,102 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
     st["peak_price"] = max(float(st.get("peak_price", price)), price)
     st["peak_score"] = max(int(st.get("peak_score", 0)), momentum_score)
 
-    current = str(st["state"])
-    target = current
+    peak_price = float(st.get("peak_price", price))
+    drawdown = ((price - peak_price) / peak_price * 100.0) if peak_price > 0 else 0.0
+    state_age = now - float(st.get("last_transition", 0.0))
+
+    desired = current
+    required_confirm = 0
 
     if current == "NORMAL":
-        if pump_raw and not fading:
-            target = "PUMP"
-        elif early_raw and not fading:
-            target = "EARLY_MOVE"
+        if pump_raw and not fading and not reversal_bounce:
+            desired = "PUMP"
+        elif early_raw and not fading and not reversal_bounce:
+            desired = "EARLY_MOVE"
+
     elif current == "EARLY_MOVE":
-        if pump_raw and not fading:
-            target = "PUMP"
-        elif fading or ((m1 is not None and m1 < 0) and (m3 is not None and m3 <= 0)):
-            target = "COOLING"
+        if pump_raw and not fading and not reversal_bounce:
+            desired = "PUMP"
+        elif state_age >= STATE_MIN_HOLD_SECONDS["EARLY_MOVE"]:
+            weakening = (
+                fading
+                or ((m1 is not None and m1 < -0.5) and (m3 is not None and m3 <= 0.0))
+                or (momentum_score <= 5 and drawdown <= -1.5)
+            )
+            if weakening:
+                desired = "COOLING"
+                required_confirm = EARLY_TO_COOLING_CONFIRM_SECONDS
+
     elif current == "PUMP":
-        drawdown = ((price - float(st["peak_price"])) / float(st["peak_price"]) * 100.0) if float(st["peak_price"]) > 0 else 0.0
-        if fading or drawdown <= -2.0 or ((m1 is not None and m1 < -1.0) and (m3 is not None and m3 <= 0)):
-            target = "COOLING"
+        if state_age >= STATE_MIN_HOLD_SECONDS["PUMP"]:
+            weakening = (
+                fading
+                or drawdown <= -2.5
+                or ((m1 is not None and m1 < -1.0) and (m3 is not None and m3 <= 0.0))
+            )
+            if weakening:
+                desired = "COOLING"
+                required_confirm = PUMP_TO_COOLING_CONFIRM_SECONDS
+
     elif current == "COOLING":
-        drawdown = ((price - float(st["peak_price"])) / float(st["peak_price"]) * 100.0) if float(st["peak_price"]) > 0 else 0.0
-        if pump_raw and accelerating:
-            target = "PUMP"
-        elif now - float(st["last_transition"]) >= COOLING_CONFIRM_SECONDS and (
-            drawdown <= -3.0 or (m3 is not None and m3 < -1.0)
-        ):
-            target = "EXIT"
+        if state_age >= STATE_MIN_HOLD_SECONDS["COOLING"]:
+            # Strong recovery required to re-enter PUMP.
+            recovered = (
+                pump_raw
+                and accelerating
+                and not fading
+                and not reversal_bounce
+                and drawdown > -2.0
+                and momentum_score >= 45
+            )
+            if recovered:
+                desired = "PUMP"
+                required_confirm = COOLING_TO_PUMP_CONFIRM_SECONDS
+            elif state_age >= COOLING_CONFIRM_SECONDS:
+                exit_ready = (
+                    drawdown <= -3.0
+                    or (m3 is not None and m3 < -1.0)
+                    or (m5 is not None and m5 < -1.5)
+                )
+                if exit_ready:
+                    desired = "EXIT"
 
-    if target == current:
-        return
+    elif current == "EXIT":
+        # EXIT stays sticky until the whole cycle resets.
+        desired = "EXIT"
 
-    if current == "NORMAL":
+    # Confirmation window for noisy reversals.
+    if desired != current and required_confirm > 0:
+        if st.get("pending_state") != desired:
+            st["pending_state"] = desired
+            st["pending_since"] = now
+            return
+
+        if now - float(st.get("pending_since", now)) < required_confirm:
+            return
+    else:
+        # Any return to the current regime cancels a pending transition.
+        if desired == current:
+            st["pending_state"] = None
+            st["pending_since"] = 0.0
+            return
+
+    # Transition accepted.
+    previous = current
+
+    if previous == "NORMAL":
         st["started_at"] = now
         st["peak_price"] = price
         st["peak_score"] = momentum_score
 
-    st["state"] = target
+    st["state"] = desired
     st["last_transition"] = now
+    st["pending_state"] = None
+    st["pending_since"] = 0.0
 
     signals.appendleft({
-        "type": target,
-        "previous_state": current,
+        "type": desired,
+        "previous_state": previous,
         "asset": asset,
         "asset_name": asset_display_name(asset),
         "source": source,
@@ -339,13 +425,13 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         "momentum_score": momentum_score,
         "accelerating": accelerating,
         "fading": fading,
+        "reversal_bounce": reversal_bounce,
         "moves": moves,
         "cycle_started_at": int(float(st["started_at"])) if st["started_at"] else None,
         "peak_price": st["peak_price"],
         "peak_score": st["peak_score"],
         "timestamp": int(now),
     })
-
 
 def store_price(asset: str, source: str, source_symbol: str, price: float) -> None:
     if price <= 0:
@@ -389,7 +475,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.7.1",
+            "User-Agent": "PumpHunterServer/2.7.2",
         },
     )
 
@@ -790,7 +876,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7.1"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7.2"},
     )
     response.raise_for_status()
 
@@ -958,7 +1044,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7.1"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7.2"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1551,7 +1637,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.7.1",
+        "version": "2.7.2",
         "status": "running",
     }
 
@@ -1732,6 +1818,8 @@ def signal_engine() -> Dict[str, object]:
                 "peak_price": st.get("peak_price"),
                 "peak_score": st.get("peak_score"),
                 "current_price": latest_prices.get(asset),
+                "pending_state": st.get("pending_state"),
+                "pending_since": int(float(st.get("pending_since", 0))) if st.get("pending_since") else None,
             })
 
     active.sort(key=lambda x: x.get("last_transition") or 0, reverse=True)
