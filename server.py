@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.7.2")
+app = FastAPI(title="Pump Hunter Server", version="2.8")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -140,6 +140,11 @@ price_history: Dict[str, deque] = {}
 last_sample_time: Dict[str, float] = {}
 latest_prices: Dict[str, float] = {}
 live_last_event: Dict[str, float] = {}
+activity_last_total: Dict[str, float] = {}
+activity_history: Dict[str, deque] = {}
+ACTIVITY_HISTORY_SECONDS = 10 * 60
+VOLUME_CONFIRM_RATIO = 1.50
+VOLUME_STRONG_RATIO = 2.25
 backfill_status: Dict[str, object] = {
     "running": False,
     "completed": False,
@@ -235,6 +240,171 @@ def pump_score(moves: Dict[str, Optional[float]]) -> int:
     return min(score, 100)
 
 
+
+def record_market_activity(
+    asset: str,
+    now: float,
+    cumulative_volume: Optional[float] = None,
+    trade_size: Optional[float] = None,
+) -> None:
+    """Record a source-agnostic activity increment.
+
+    For cumulative 24h volume fields we store only positive deltas.
+    For trade tick feeds (KuCoin) we use the latest trade size directly.
+    Ratios are calculated within one asset/source, so quote/base units do not
+    need to be identical across exchanges.
+    """
+    delta = 0.0
+
+    if cumulative_volume is not None and cumulative_volume >= 0:
+        previous = activity_last_total.get(asset)
+        activity_last_total[asset] = cumulative_volume
+        if previous is None:
+            return
+        if cumulative_volume >= previous:
+            delta = cumulative_volume - previous
+        else:
+            # 24h rolling counters can reset/rebase. Do not create a fake spike.
+            return
+    elif trade_size is not None and trade_size > 0:
+        delta = trade_size
+    else:
+        return
+
+    if delta <= 0:
+        return
+
+    history = activity_history.setdefault(asset, deque(maxlen=6000))
+    history.append((now, delta))
+
+    cutoff = now - ACTIVITY_HISTORY_SECONDS
+    while history and history[0][0] < cutoff:
+        history.popleft()
+
+
+def activity_metrics(asset: str, now: float) -> Dict[str, object]:
+    history = activity_history.get(asset)
+    if not history:
+        return {
+            "ready": False,
+            "volume_1m": None,
+            "volume_prev_1m": None,
+            "volume_ratio": None,
+            "volume_confirmed": None,
+            "volume_strong": None,
+        }
+
+    current_start = now - 60
+    previous_start = now - 120
+
+    current = 0.0
+    previous = 0.0
+    oldest = now
+
+    for ts, value in history:
+        oldest = min(oldest, ts)
+        if ts >= current_start:
+            current += value
+        elif ts >= previous_start:
+            previous += value
+
+    # Need roughly two minutes of live observation before comparing windows.
+    ready = oldest <= now - 90
+
+    ratio = None
+    if ready:
+        if previous > 0:
+            ratio = current / previous
+        elif current > 0:
+            ratio = 5.0
+        else:
+            ratio = 0.0
+
+    return {
+        "ready": ready,
+        "volume_1m": round(current, 8) if ready else None,
+        "volume_prev_1m": round(previous, 8) if ready else None,
+        "volume_ratio": round(ratio, 3) if ratio is not None else None,
+        "volume_confirmed": (ratio >= VOLUME_CONFIRM_RATIO) if ratio is not None else None,
+        "volume_strong": (ratio >= VOLUME_STRONG_RATIO) if ratio is not None else None,
+    }
+
+
+def quality_metrics(
+    moves: Dict[str, Optional[float]],
+    momentum_score: int,
+    accelerating: bool,
+    fading: bool,
+    reversal_bounce: bool,
+    volume: Dict[str, object],
+) -> Dict[str, object]:
+    m1, m3, m5, m10 = [moves.get(k) for k in ("1m", "3m", "5m", "10m")]
+
+    available_short = [x for x in (m1, m3, m5) if x is not None]
+    positive_short = sum(1 for x in available_short if x > 0)
+    negative_short = sum(1 for x in available_short if x < 0)
+
+    trend_aligned = len(available_short) >= 2 and positive_short >= 2
+    broad_trend_positive = (
+        (m5 is None or m5 >= 0)
+        and (m10 is None or m10 >= -0.5)
+    )
+
+    score = int(momentum_score)
+
+    if trend_aligned:
+        score += 12
+    elif len(available_short) >= 2 and positive_short == 1:
+        score -= 8
+
+    if broad_trend_positive:
+        score += 5
+    else:
+        score -= 8
+
+    if accelerating:
+        score += 8
+    if fading:
+        score -= 18
+    if reversal_bounce:
+        score -= 25
+
+    volume_ready = bool(volume.get("ready"))
+    volume_ratio = volume.get("volume_ratio")
+
+    if volume_ready and isinstance(volume_ratio, (int, float)):
+        if volume_ratio >= VOLUME_STRONG_RATIO:
+            score += 18
+        elif volume_ratio >= VOLUME_CONFIRM_RATIO:
+            score += 10
+        elif volume_ratio < 0.75:
+            score -= 10
+
+    score = max(0, min(100, score))
+
+    if score >= 80:
+        label = "VERY_HIGH"
+    elif score >= 65:
+        label = "HIGH"
+    elif score >= 45:
+        label = "MEDIUM"
+    else:
+        label = "LOW"
+
+    return {
+        "quality_score": score,
+        "quality": label,
+        "trend_aligned": trend_aligned,
+        "positive_short_windows": positive_short,
+        "negative_short_windows": negative_short,
+        "broad_trend_positive": broad_trend_positive,
+        "volume_ready": volume_ready,
+        "volume_ratio": volume_ratio,
+        "volume_confirmed": volume.get("volume_confirmed"),
+        "volume_strong": volume.get("volume_strong"),
+    }
+
+
 def detect_signal(asset: str, source: str, source_symbol: str, price: float,
                   moves: Dict[str, Optional[float]], now: float) -> None:
     m1, m3, m5, m10, m30 = [moves.get(k) for k in ("1m", "3m", "5m", "10m", "30m")]
@@ -284,6 +454,32 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
     if reversal_bounce:
         momentum_score = max(0, momentum_score - 30)
 
+    volume = activity_metrics(asset, now)
+    quality = quality_metrics(
+        moves=moves,
+        momentum_score=momentum_score,
+        accelerating=accelerating,
+        fading=fading,
+        reversal_bounce=reversal_bounce,
+        volume=volume,
+    )
+    quality_score = int(quality["quality_score"])
+
+    # EARLY should represent a developing move, not just a one-minute rebound.
+    early_quality_ok = (
+        quality_score >= 45
+        and not reversal_bounce
+        and (
+            bool(quality["trend_aligned"])
+            or (m1 is not None and m1 >= 2.5 and (m3 is None or m3 > -0.75))
+        )
+    )
+    pump_quality_ok = (
+        quality_score >= 50
+        or (m1 is not None and m1 >= 5.0)
+        or (m3 is not None and m3 >= 7.0)
+    )
+
     st = signal_state.setdefault(asset, {
         "state": "NORMAL",
         "started_at": 0.0,
@@ -326,13 +522,13 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
     required_confirm = 0
 
     if current == "NORMAL":
-        if pump_raw and not fading and not reversal_bounce:
+        if pump_raw and pump_quality_ok and not fading and not reversal_bounce:
             desired = "PUMP"
-        elif early_raw and not fading and not reversal_bounce:
+        elif early_raw and early_quality_ok and not fading and not reversal_bounce:
             desired = "EARLY_MOVE"
 
     elif current == "EARLY_MOVE":
-        if pump_raw and not fading and not reversal_bounce:
+        if pump_raw and pump_quality_ok and not fading and not reversal_bounce:
             desired = "PUMP"
         elif state_age >= STATE_MIN_HOLD_SECONDS["EARLY_MOVE"]:
             weakening = (
@@ -360,6 +556,7 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
             # Strong recovery required to re-enter PUMP.
             recovered = (
                 pump_raw
+                and pump_quality_ok
                 and accelerating
                 and not fading
                 and not reversal_bounce
@@ -426,6 +623,15 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         "accelerating": accelerating,
         "fading": fading,
         "reversal_bounce": reversal_bounce,
+        "quality_score": quality["quality_score"],
+        "quality": quality["quality"],
+        "trend_aligned": quality["trend_aligned"],
+        "positive_short_windows": quality["positive_short_windows"],
+        "broad_trend_positive": quality["broad_trend_positive"],
+        "volume_ready": quality["volume_ready"],
+        "volume_ratio": quality["volume_ratio"],
+        "volume_confirmed": quality["volume_confirmed"],
+        "volume_strong": quality["volume_strong"],
         "moves": moves,
         "cycle_started_at": int(float(st["started_at"])) if st["started_at"] else None,
         "peak_price": st["peak_price"],
@@ -475,7 +681,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.7.2",
+            "User-Agent": "PumpHunterServer/2.8",
         },
     )
 
@@ -876,7 +1082,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7.2"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8"},
     )
     response.raise_for_status()
 
@@ -1044,7 +1250,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.7.2"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1218,7 +1424,13 @@ async def binance_fast_feed_loop() -> None:
                     except (TypeError, ValueError):
                         continue
 
-                    state["binance_last_event"] = int(time.time())
+                    now_event = time.time()
+                    state["binance_last_event"] = int(now_event)
+                    try:
+                        cumulative_activity = float(message.get("q", 0))
+                    except (TypeError, ValueError):
+                        cumulative_activity = None
+                    record_market_activity(asset, now_event, cumulative_volume=cumulative_activity)
 
                     store_price(
                         asset=asset,
@@ -1283,7 +1495,13 @@ async def bybit_fast_feed_loop() -> None:
                     except (TypeError, ValueError):
                         continue
 
-                    state["bybit_last_event"] = int(time.time())
+                    now_event = time.time()
+                    state["bybit_last_event"] = int(now_event)
+                    try:
+                        cumulative_activity = float(data.get("turnover24h", 0))
+                    except (TypeError, ValueError):
+                        cumulative_activity = None
+                    record_market_activity(asset, now_event, cumulative_volume=cumulative_activity)
 
                     store_price(
                         asset=asset,
@@ -1333,7 +1551,13 @@ async def gate_fast_feed_loop() -> None:
                         price = float(data.get("last", 0))
                     except (TypeError, ValueError):
                         continue
-                    state["gate_last_event"] = int(time.time())
+                    now_event = time.time()
+                    state["gate_last_event"] = int(now_event)
+                    try:
+                        cumulative_activity = float(data.get("quote_volume", 0))
+                    except (TypeError, ValueError):
+                        cumulative_activity = None
+                    record_market_activity(asset, now_event, cumulative_volume=cumulative_activity)
                     store_price(asset, "GATE", pair, price)
         except Exception as exc:
             state["gate_connected"] = False
@@ -1404,7 +1628,13 @@ async def okx_fast_feed_loop() -> None:
                     except (TypeError, ValueError):
                         continue
 
-                    state["okx_last_event"] = int(time.time())
+                    now_event = time.time()
+                    state["okx_last_event"] = int(now_event)
+                    try:
+                        cumulative_activity = float(item.get("volCcy24h", 0))
+                    except (TypeError, ValueError):
+                        cumulative_activity = None
+                    record_market_activity(asset, now_event, cumulative_volume=cumulative_activity)
 
                     store_price(
                         asset=asset,
@@ -1505,7 +1735,13 @@ async def kucoin_fast_feed_loop() -> None:
                     except (TypeError, ValueError):
                         continue
 
-                    state["kucoin_last_event"] = int(time.time())
+                    now_event = time.time()
+                    state["kucoin_last_event"] = int(now_event)
+                    try:
+                        trade_size = float(data.get("size", 0))
+                    except (TypeError, ValueError):
+                        trade_size = None
+                    record_market_activity(asset, now_event, trade_size=trade_size)
 
                     store_price(
                         asset=asset,
@@ -1558,7 +1794,13 @@ async def coinbase_fast_feed_loop() -> None:
                                 price = float(ticker.get("price", 0))
                             except (TypeError, ValueError):
                                 continue
-                            state["coinbase_last_event"] = int(time.time())
+                            now_event = time.time()
+                            state["coinbase_last_event"] = int(now_event)
+                            try:
+                                cumulative_activity = float(ticker.get("volume_24_h", 0))
+                            except (TypeError, ValueError):
+                                cumulative_activity = None
+                            record_market_activity(asset, now_event, cumulative_volume=cumulative_activity)
                             store_price(asset, "COINBASE", product_id, price)
         except Exception as exc:
             state["coinbase_connected"] = False
@@ -1604,7 +1846,17 @@ async def kraken_fast_feed_loop() -> None:
                             price = float(ticker.get("last", 0))
                         except (TypeError, ValueError):
                             continue
-                        state["kraken_last_event"] = int(time.time())
+                        now_event = time.time()
+                        state["kraken_last_event"] = int(now_event)
+                        raw_volume = ticker.get("volume")
+                        try:
+                            if isinstance(raw_volume, list):
+                                cumulative_activity = float(raw_volume[-1]) if raw_volume else None
+                            else:
+                                cumulative_activity = float(raw_volume) if raw_volume is not None else None
+                        except (TypeError, ValueError):
+                            cumulative_activity = None
+                        record_market_activity(asset, now_event, cumulative_volume=cumulative_activity)
                         store_price(asset, "KRAKEN", symbol, price)
         except Exception as exc:
             state["kraken_connected"] = False
@@ -1637,7 +1889,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.7.2",
+        "version": "2.8",
         "status": "running",
     }
 
@@ -1795,6 +2047,68 @@ def get_signals(limit: int = 50) -> Dict[str, object]:
     }
 
 
+@app.get("/quality")
+def quality_overview(limit: int = 30) -> Dict[str, object]:
+    now = time.time()
+    rows = []
+
+    for asset in [str(a).upper() for a in state.get("assets", [])]:
+        price = latest_prices.get(asset)
+        if price is None:
+            continue
+        moves = calculate_moves(asset, now, price)
+
+        m1, m3, m5 = [moves.get(k) for k in ("1m", "3m", "5m")]
+        positive_short = sum(1 for x in (m1, m3, m5) if x is not None and x > 0)
+        fading = (
+            (m5 is not None and m5 >= 3.0)
+            and (m3 is not None and m3 <= 0.0)
+            and (m1 is None or m1 < 1.0)
+        )
+        accelerating = (
+            (m1 is not None and m1 >= 1.0)
+            and (m3 is None or m3 > 0.0)
+            and positive_short >= 2
+        )
+        reversal = (
+            (m1 is not None and m1 >= 1.0)
+            and (
+                (m3 is not None and m3 <= REVERSAL_BLOCK_3M_PCT)
+                or (m5 is not None and m5 <= REVERSAL_BLOCK_5M_PCT)
+            )
+        )
+        momentum = pump_score(moves)
+        if accelerating:
+            momentum = min(100, momentum + 10)
+        if fading:
+            momentum = max(0, momentum - 25)
+        if reversal:
+            momentum = max(0, momentum - 30)
+
+        qm = quality_metrics(
+            moves, momentum, accelerating, fading, reversal,
+            activity_metrics(asset, now)
+        )
+        rows.append({
+            "asset": asset,
+            "asset_name": asset_display_name(asset),
+            "source": latest_sources.get(asset),
+            "source_name": source_display_name(latest_sources.get(asset)),
+            "price": price,
+            "state": signal_state.get(asset, {}).get("state", "NORMAL"),
+            "quality_score": qm["quality_score"],
+            "quality": qm["quality"],
+            "trend_aligned": qm["trend_aligned"],
+            "volume_ratio": qm["volume_ratio"],
+            "volume_confirmed": qm["volume_confirmed"],
+            "moves": moves,
+        })
+
+    rows.sort(key=lambda x: x["quality_score"], reverse=True)
+    safe_limit = max(1, min(limit, 100))
+    return {"count": len(rows), "top": rows[:safe_limit]}
+
+
 @app.get("/signal-engine")
 def signal_engine() -> Dict[str, object]:
     counts = {"NORMAL": 0, "EARLY_MOVE": 0, "PUMP": 0, "COOLING": 0, "EXIT": 0}
@@ -1864,6 +2178,16 @@ def asset_status(asset: str) -> Dict[str, object]:
         else {name: None for name in WINDOWS}
     )
 
+    volume = activity_metrics(symbol, now)
+    current_quality = quality_metrics(
+        moves=moves,
+        momentum_score=pump_score(moves),
+        accelerating=False,
+        fading=False,
+        reversal_bounce=False,
+        volume=volume,
+    )
+
     return {
         "asset": symbol,
         "asset_name": asset_display_name(symbol),
@@ -1872,6 +2196,10 @@ def asset_status(asset: str) -> Dict[str, object]:
         "source_name": source_display_name(source),
         "moves": moves,
         "pump_score": pump_score(moves),
+        "quality_score": current_quality["quality_score"],
+        "quality": current_quality["quality"],
+        "volume_ratio": current_quality["volume_ratio"],
+        "volume_confirmed": current_quality["volume_confirmed"],
         "signal_state": signal_state.get(symbol, {}).get("state", "NORMAL"),
         "signal_cycle": signal_state.get(symbol),
         "tracked": symbol in price_history,
