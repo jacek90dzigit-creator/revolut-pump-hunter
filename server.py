@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.8")
+app = FastAPI(title="Pump Hunter Server", version="2.8.1")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -145,6 +145,9 @@ activity_history: Dict[str, deque] = {}
 ACTIVITY_HISTORY_SECONDS = 10 * 60
 VOLUME_CONFIRM_RATIO = 1.50
 VOLUME_STRONG_RATIO = 2.25
+VOLUME_RATIO_CAP = 5.0
+VOLUME_LOW_BASELINE_FRACTION = 0.10
+MIN_PRICE_MOVE_FOR_VOLUME_BONUS_PCT = 0.35
 backfill_status: Dict[str, object] = {
     "running": False,
     "completed": False,
@@ -290,13 +293,14 @@ def activity_metrics(asset: str, now: float) -> Dict[str, object]:
             "volume_1m": None,
             "volume_prev_1m": None,
             "volume_ratio": None,
+            "volume_ratio_raw": None,
             "volume_confirmed": None,
             "volume_strong": None,
+            "low_baseline": None,
         }
 
     current_start = now - 60
     previous_start = now - 120
-
     current = 0.0
     previous = 0.0
     oldest = now
@@ -308,26 +312,41 @@ def activity_metrics(asset: str, now: float) -> Dict[str, object]:
         elif ts >= previous_start:
             previous += value
 
-    # Need roughly two minutes of live observation before comparing windows.
     ready = oldest <= now - 90
-
+    ratio_raw = None
     ratio = None
+    low_baseline = None
+
     if ready:
+        scale = max((current + previous) / 2.0, 1e-12)
+        low_baseline = previous < (scale * VOLUME_LOW_BASELINE_FRACTION)
+
         if previous > 0:
-            ratio = current / previous
+            ratio_raw = current / previous
         elif current > 0:
-            ratio = 5.0
+            ratio_raw = VOLUME_RATIO_CAP
         else:
-            ratio = 0.0
+            ratio_raw = 0.0
+
+        ratio = min(ratio_raw, VOLUME_RATIO_CAP)
+
+    confirmed = None
+    strong = None
+    if ratio is not None:
+        confirmed = (ratio >= VOLUME_CONFIRM_RATIO) and not bool(low_baseline)
+        strong = (ratio >= VOLUME_STRONG_RATIO) and not bool(low_baseline)
 
     return {
         "ready": ready,
         "volume_1m": round(current, 8) if ready else None,
         "volume_prev_1m": round(previous, 8) if ready else None,
         "volume_ratio": round(ratio, 3) if ratio is not None else None,
-        "volume_confirmed": (ratio >= VOLUME_CONFIRM_RATIO) if ratio is not None else None,
-        "volume_strong": (ratio >= VOLUME_STRONG_RATIO) if ratio is not None else None,
+        "volume_ratio_raw": round(ratio_raw, 3) if ratio_raw is not None else None,
+        "volume_confirmed": confirmed,
+        "volume_strong": strong,
+        "low_baseline": low_baseline,
     }
+
 
 
 def quality_metrics(
@@ -369,16 +388,27 @@ def quality_metrics(
     if reversal_bounce:
         score -= 25
 
+    price_impulse = max(
+        abs(x) for x in (m1, m3, m5) if x is not None
+    ) if any(x is not None for x in (m1, m3, m5)) else 0.0
+
     volume_ready = bool(volume.get("ready"))
     volume_ratio = volume.get("volume_ratio")
+    low_baseline = bool(volume.get("low_baseline")) if volume.get("low_baseline") is not None else False
+    volume_bonus_applied = False
 
     if volume_ready and isinstance(volume_ratio, (int, float)):
-        if volume_ratio >= VOLUME_STRONG_RATIO:
-            score += 18
-        elif volume_ratio >= VOLUME_CONFIRM_RATIO:
-            score += 10
-        elif volume_ratio < 0.75:
-            score -= 10
+        if price_impulse >= MIN_PRICE_MOVE_FOR_VOLUME_BONUS_PCT and not low_baseline:
+            if volume_ratio >= VOLUME_STRONG_RATIO:
+                score += 18
+                volume_bonus_applied = True
+            elif volume_ratio >= VOLUME_CONFIRM_RATIO:
+                score += 10
+                volume_bonus_applied = True
+            elif volume_ratio < 0.75:
+                score -= 10
+        elif volume_ratio < 0.75 and price_impulse >= MIN_PRICE_MOVE_FOR_VOLUME_BONUS_PCT:
+            score -= 6
 
     score = max(0, min(100, score))
 
@@ -398,11 +428,16 @@ def quality_metrics(
         "positive_short_windows": positive_short,
         "negative_short_windows": negative_short,
         "broad_trend_positive": broad_trend_positive,
+        "price_impulse_pct": round(price_impulse, 4),
         "volume_ready": volume_ready,
         "volume_ratio": volume_ratio,
+        "volume_ratio_raw": volume.get("volume_ratio_raw"),
         "volume_confirmed": volume.get("volume_confirmed"),
         "volume_strong": volume.get("volume_strong"),
+        "volume_low_baseline": volume.get("low_baseline"),
+        "volume_bonus_applied": volume_bonus_applied,
     }
+
 
 
 def detect_signal(asset: str, source: str, source_symbol: str, price: float,
@@ -630,8 +665,12 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         "broad_trend_positive": quality["broad_trend_positive"],
         "volume_ready": quality["volume_ready"],
         "volume_ratio": quality["volume_ratio"],
+        "volume_ratio_raw": quality["volume_ratio_raw"],
         "volume_confirmed": quality["volume_confirmed"],
         "volume_strong": quality["volume_strong"],
+        "volume_low_baseline": quality["volume_low_baseline"],
+        "volume_bonus_applied": quality["volume_bonus_applied"],
+        "price_impulse_pct": quality["price_impulse_pct"],
         "moves": moves,
         "cycle_started_at": int(float(st["started_at"])) if st["started_at"] else None,
         "peak_price": st["peak_price"],
@@ -681,7 +720,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.8",
+            "User-Agent": "PumpHunterServer/2.8.1",
         },
     )
 
@@ -1082,7 +1121,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.1"},
     )
     response.raise_for_status()
 
@@ -1250,7 +1289,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.1"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1889,7 +1928,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.8",
+        "version": "2.8.1",
         "status": "running",
     }
 
@@ -2099,8 +2138,12 @@ def quality_overview(limit: int = 30) -> Dict[str, object]:
             "quality_score": qm["quality_score"],
             "quality": qm["quality"],
             "trend_aligned": qm["trend_aligned"],
+            "price_impulse_pct": qm["price_impulse_pct"],
             "volume_ratio": qm["volume_ratio"],
+            "volume_ratio_raw": qm["volume_ratio_raw"],
             "volume_confirmed": qm["volume_confirmed"],
+            "volume_low_baseline": qm["volume_low_baseline"],
+            "volume_bonus_applied": qm["volume_bonus_applied"],
             "moves": moves,
         })
 
@@ -2199,7 +2242,10 @@ def asset_status(asset: str) -> Dict[str, object]:
         "quality_score": current_quality["quality_score"],
         "quality": current_quality["quality"],
         "volume_ratio": current_quality["volume_ratio"],
+        "volume_ratio_raw": current_quality["volume_ratio_raw"],
         "volume_confirmed": current_quality["volume_confirmed"],
+        "volume_low_baseline": current_quality["volume_low_baseline"],
+        "volume_bonus_applied": current_quality["volume_bonus_applied"],
         "signal_state": signal_state.get(symbol, {}).get("state", "NORMAL"),
         "signal_cycle": signal_state.get(symbol),
         "tracked": symbol in price_history,
