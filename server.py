@@ -87,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.8.3")
+app = FastAPI(title="Pump Hunter Server", version="2.9.0")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -160,6 +160,11 @@ COOLING_REENTRY_MIN_QUALITY_SCORE = 65
 COOLING_REENTRY_CONFIRM_SECONDS = 15
 COOLING_REENTRY_MIN_M1_PCT = 1.5
 COOLING_REENTRY_MIN_M3_PCT = 0.5
+REENTRY_COOLDOWN_SECONDS = 120
+REENTRY_MAX_PER_CYCLE = 2
+EXIT_REENTRY_MIN_M1_PCT = 2.0
+EXIT_REENTRY_MIN_M3_PCT = 0.75
+EXIT_REENTRY_MAX_DRAWDOWN_PCT = -2.0
 backfill_status: Dict[str, object] = {
     "running": False,
     "completed": False,
@@ -560,6 +565,9 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         "source_symbol": source_symbol,
         "pending_state": None,
         "pending_since": 0.0,
+        "reentry_count": 0,
+        "last_reentry_at": 0.0,
+        "last_reentry_from": None,
     })
 
     current = str(st.get("state", "NORMAL"))
@@ -574,6 +582,9 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
             "peak_score": 0,
             "pending_state": None,
             "pending_since": 0.0,
+            "reentry_count": 0,
+            "last_reentry_at": 0.0,
+            "last_reentry_from": None,
         })
         current = "NORMAL"
 
@@ -589,6 +600,10 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
 
     desired = current
     required_confirm = 0
+    reentry_count = int(st.get("reentry_count", 0) or 0)
+    last_reentry_at = float(st.get("last_reentry_at", 0.0) or 0.0)
+    reentry_cooldown_ok = last_reentry_at <= 0.0 or now - last_reentry_at >= REENTRY_COOLDOWN_SECONDS
+    reentry_budget_ok = reentry_count < REENTRY_MAX_PER_CYCLE
 
     if current == "NORMAL":
         if pump_raw and pump_quality_ok and not fading and not reversal_bounce:
@@ -624,7 +639,9 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         if state_age >= STATE_MIN_HOLD_SECONDS["COOLING"]:
             # A genuine second wave after cooling is a RE_ENTRY event.
             recovered = (
-                pump_raw
+                reentry_cooldown_ok
+                and reentry_budget_ok
+                and pump_raw
                 and pump_quality_ok
                 and accelerating
                 and not fading
@@ -650,13 +667,17 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         exit_age = now - float(st.get("last_transition", 0.0))
         reentry_ready = (
             exit_age <= REENTRY_MAX_EXIT_AGE_SECONDS
+            and reentry_cooldown_ok
+            and reentry_budget_ok
             and pump_raw
+            and pump_quality_ok
             and accelerating
             and not fading
             and not reversal_bounce
+            and drawdown > EXIT_REENTRY_MAX_DRAWDOWN_PCT
             and quality_score >= REENTRY_MIN_QUALITY_SCORE
-            and (m1 is not None and m1 >= 1.5)
-            and (m3 is None or m3 > 0.0)
+            and (m1 is not None and m1 >= EXIT_REENTRY_MIN_M1_PCT)
+            and (m3 is not None and m3 >= EXIT_REENTRY_MIN_M3_PCT)
         )
         if reentry_ready:
             desired = "PUMP"
@@ -693,11 +714,17 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
     st["pending_state"] = None
     st["pending_since"] = 0.0
 
+    is_reentry = previous in ("COOLING", "EXIT") and desired == "PUMP"
+    if is_reentry:
+        st["reentry_count"] = int(st.get("reentry_count", 0) or 0) + 1
+        st["last_reentry_at"] = now
+        st["last_reentry_from"] = previous
+
     signals.appendleft({
-        "type": "RE_ENTRY" if previous in ("COOLING", "EXIT") and desired == "PUMP" else desired,
+        "type": "RE_ENTRY" if is_reentry else desired,
         "engine_state": desired,
         "previous_state": previous,
-        "reentry_from": previous if previous in ("COOLING", "EXIT") and desired == "PUMP" else None,
+        "reentry_from": previous if is_reentry else None,
         "asset": asset,
         "asset_name": asset_display_name(asset),
         "source": source,
@@ -726,6 +753,10 @@ def detect_signal(asset: str, source: str, source_symbol: str, price: float,
         "bullish_impulse_pct": quality["bullish_impulse_pct"],
         "pump_quality_ok": pump_quality_ok,
         "emergency_pump_ok": emergency_pump_ok,
+        "reentry_count": int(st.get("reentry_count", 0) or 0),
+        "reentry_limit": REENTRY_MAX_PER_CYCLE,
+        "reentry_cooldown_seconds": REENTRY_COOLDOWN_SECONDS,
+        "last_reentry_at": int(float(st.get("last_reentry_at", 0.0))) if st.get("last_reentry_at") else None,
         "moves": moves,
         "cycle_started_at": int(float(st["started_at"])) if st["started_at"] else None,
         "peak_price": st["peak_price"],
@@ -775,7 +806,7 @@ def refresh_revolut_whitelist() -> None:
         timeout=20,
         headers={
             "Accept": "application/json",
-            "User-Agent": "PumpHunterServer/2.8.3",
+            "User-Agent": "PumpHunterServer/2.9.0",
         },
     )
 
@@ -1176,7 +1207,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.3"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.9.0"},
     )
     response.raise_for_status()
 
@@ -1344,7 +1375,7 @@ def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
         r = requests.get(
             f"https://api.exchange.coinbase.com/products/{symbol}/candles",
             params={"granularity": 60, "start": start, "end": now},
-            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.8.3"},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.9.0"},
             timeout=15,
         )
         r.raise_for_status()
@@ -1983,7 +2014,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.8.3",
+        "version": "2.9.0",
         "status": "running",
     }
 
