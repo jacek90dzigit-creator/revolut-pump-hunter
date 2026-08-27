@@ -25,7 +25,8 @@ KRAKEN_ASSET_PAIRS_URL = "https://api.kraken.com/0/public/AssetPairs"
 KRAKEN_WS_URL = "wss://ws.kraken.com/v2"
 
 WHITELIST_REFRESH_SECONDS = 6 * 60 * 60
-HISTORY_SECONDS = 31 * 60
+HISTORY_SECONDS = 2 * 60 * 60 + 5 * 60
+BACKFILL_MINUTES = 120
 SAMPLE_EVERY_SECONDS = 2.0
 
 WINDOWS = {
@@ -86,7 +87,7 @@ def change_pct(current: Optional[float], start: Optional[float]) -> Optional[flo
         return None
     return round(((current - start) / start) * 100.0, 4)
 
-app = FastAPI(title="Pump Hunter Server", version="2.6.1")
+app = FastAPI(title="Pump Hunter Server", version="2.6.2")
 
 state: Dict[str, object] = {
     "revolut_ok": False,
@@ -138,6 +139,15 @@ state: Dict[str, object] = {
 price_history: Dict[str, deque] = {}
 last_sample_time: Dict[str, float] = {}
 latest_prices: Dict[str, float] = {}
+live_last_event: Dict[str, float] = {}
+backfill_status: Dict[str, object] = {
+    "running": False,
+    "completed": False,
+    "assets_attempted": 0,
+    "assets_seeded": 0,
+    "candles_loaded": 0,
+    "errors": [],
+}
 latest_sources: Dict[str, str] = {}
 signals: deque = deque(maxlen=300)
 last_early_alert: Dict[str, float] = {}
@@ -698,7 +708,7 @@ def build_coinbase_mapping() -> None:
     response = requests.get(
         COINBASE_PRODUCTS_URL,
         timeout=30,
-        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.1"},
+        headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.2"},
     )
     response.raise_for_status()
 
@@ -790,6 +800,150 @@ def build_kraken_mapping() -> None:
     )
     state["total_fast_feed_assets"] = len(combined)
     state["unmatched_assets"] = sorted(whitelist - combined)
+
+
+
+def _seed_history(asset: str, source: str, source_symbol: str, candles: List[tuple]) -> int:
+    if not candles:
+        return 0
+    history = price_history.setdefault(asset, deque(maxlen=8000))
+    existing = {int(ts) for ts, _ in history}
+    added = 0
+    for ts, close in sorted(candles, key=lambda x: x[0]):
+        if close <= 0:
+            continue
+        if int(ts) not in existing:
+            history.append((float(ts), float(close)))
+            existing.add(int(ts))
+            added += 1
+    if history:
+        latest_ts, latest_price = history[-1]
+        latest_prices[asset] = latest_price
+        latest_sources[asset] = source
+        latest_source_symbols[asset] = source_symbol
+        last_sample_time[asset] = latest_ts
+    return added
+
+
+def _fetch_backfill(source: str, symbol: str) -> List[tuple]:
+    now = int(time.time())
+    start = now - BACKFILL_MINUTES * 60
+
+    if source == "BINANCE":
+        r = requests.get(
+            "https://data-api.binance.vision/api/v3/klines",
+            params={"symbol": symbol, "interval": "1m", "startTime": start * 1000, "limit": BACKFILL_MINUTES + 5},
+            timeout=15,
+        )
+        r.raise_for_status()
+        return [(int(x[0]) / 1000.0, float(x[4])) for x in r.json()]
+
+    if source == "BYBIT":
+        r = requests.get(
+            "https://api.bybit.com/v5/market/kline",
+            params={"category": "spot", "symbol": symbol, "interval": "1",
+                    "start": start * 1000, "end": now * 1000, "limit": BACKFILL_MINUTES + 5},
+            timeout=15,
+        )
+        r.raise_for_status()
+        payload = r.json()
+        if payload.get("retCode") not in (0, None):
+            raise RuntimeError(str(payload.get("retMsg")))
+        rows = payload.get("result", {}).get("list", [])
+        return [(int(x[0]) / 1000.0, float(x[4])) for x in rows]
+
+    if source == "GATE":
+        r = requests.get(
+            "https://api.gateio.ws/api/v4/spot/candlesticks",
+            params={"currency_pair": symbol, "interval": "1m", "from": start, "to": now},
+            timeout=15,
+        )
+        r.raise_for_status()
+        return [(int(x[0]), float(x[2])) for x in r.json()]
+
+    if source == "KUCOIN":
+        r = requests.get(
+            "https://api.kucoin.com/api/v1/market/candles",
+            params={"type": "1min", "symbol": symbol, "startAt": start, "endAt": now},
+            timeout=15,
+        )
+        r.raise_for_status()
+        payload = r.json()
+        if payload.get("code") != "200000":
+            raise RuntimeError(str(payload))
+        return [(int(x[0]), float(x[2])) for x in payload.get("data", [])]
+
+    if source == "COINBASE":
+        r = requests.get(
+            f"https://api.exchange.coinbase.com/products/{symbol}/candles",
+            params={"granularity": 60, "start": start, "end": now},
+            headers={"Accept": "application/json", "User-Agent": "PumpHunterServer/2.6.2"},
+            timeout=15,
+        )
+        r.raise_for_status()
+        return [(int(x[0]), float(x[4])) for x in r.json()]
+
+    if source == "KRAKEN":
+        pair = symbol.replace("/", "")
+        r = requests.get(
+            "https://api.kraken.com/0/public/OHLC",
+            params={"pair": pair, "interval": 1, "since": start},
+            timeout=15,
+        )
+        r.raise_for_status()
+        payload = r.json()
+        if payload.get("error"):
+            raise RuntimeError(str(payload["error"]))
+        result = payload.get("result", {})
+        rows = next((v for k, v in result.items() if k != "last" and isinstance(v, list)), [])
+        return [(int(x[0]), float(x[4])) for x in rows]
+
+    return []
+
+
+def _asset_routes() -> Dict[str, tuple]:
+    routes: Dict[str, tuple] = {}
+    # Same priority as mapping: earlier feeds win.
+    for source, mapping in (
+        ("BINANCE", binance_symbol_to_asset),
+        ("BYBIT", bybit_symbol_to_asset),
+        ("GATE", gate_symbol_to_asset),
+        ("OKX", okx_symbol_to_asset),
+        ("KUCOIN", kucoin_symbol_to_asset),
+        ("COINBASE", coinbase_symbol_to_asset),
+        ("KRAKEN", kraken_symbol_to_asset),
+    ):
+        for source_symbol, asset in mapping.items():
+            routes.setdefault(asset, (source, source_symbol))
+    return routes
+
+
+async def historical_backfill() -> None:
+    backfill_status.update({
+        "running": True, "completed": False, "assets_attempted": 0,
+        "assets_seeded": 0, "candles_loaded": 0, "errors": [],
+    })
+    routes = _asset_routes()
+    sem = asyncio.Semaphore(10)
+
+    async def one(asset: str, route: tuple) -> None:
+        source, symbol = route
+        backfill_status["assets_attempted"] += 1
+        async with sem:
+            try:
+                candles = await asyncio.to_thread(_fetch_backfill, source, symbol)
+                added = _seed_history(asset, source, symbol, candles)
+                if added:
+                    backfill_status["assets_seeded"] += 1
+                    backfill_status["candles_loaded"] += added
+            except Exception as exc:
+                errors = backfill_status["errors"]
+                if len(errors) < 50:
+                    errors.append({"asset": asset, "source": source, "symbol": symbol, "error": str(exc)[:180]})
+
+    await asyncio.gather(*(one(asset, route) for asset, route in routes.items()))
+    backfill_status["running"] = False
+    backfill_status["completed"] = True
 
 
 async def rebuild_mappings() -> None:
@@ -1302,6 +1456,7 @@ async def startup_event() -> None:
     await rebuild_mappings()
 
     asyncio.create_task(whitelist_refresh_loop())
+    asyncio.create_task(historical_backfill())
     asyncio.create_task(binance_fast_feed_loop())
     asyncio.create_task(bybit_fast_feed_loop())
     asyncio.create_task(gate_fast_feed_loop())
@@ -1315,7 +1470,7 @@ async def startup_event() -> None:
 def root() -> Dict[str, object]:
     return {
         "name": "Pump Hunter Server",
-        "version": "2.6.1",
+        "version": "2.6.2",
         "status": "running",
     }
 
@@ -1408,16 +1563,33 @@ def feed_health(stale_after: int = 120) -> Dict[str, object]:
                 }
             )
 
+    live_assets = sorted(a for a in whitelist_assets if a in live_last_event)
+    live_stale = []
+    for asset in live_assets:
+        age = now - live_last_event[asset]
+        if age > max(1, stale_after):
+            live_stale.append({
+                "asset": asset,
+                "asset_name": asset_display_name(asset),
+                "source": latest_sources.get(asset),
+                "source_name": source_display_name(latest_sources.get(asset)),
+                "last_live_tick_age_seconds": round(age, 1),
+            })
+
     return {
         "mapped_assets": state.get("total_fast_feed_assets", 0),
         "whitelist_assets": len(whitelist_assets),
         "priced_assets": len(priced_assets),
         "missing_price_count": len(missing_price_assets),
         "missing_price_assets": missing_price_assets,
+        "live_assets": len(live_assets),
+        "never_live_count": len(whitelist_assets) - len(live_assets),
+        "never_live_assets": sorted(set(whitelist_assets) - set(live_assets)),
         "stale_after_seconds": max(1, stale_after),
-        "stale_count": len(stale_assets),
-        "stale_assets": stale_assets,
+        "stale_count": len(live_stale),
+        "stale_assets": live_stale,
         "source_price_counts": source_counts,
+        "backfill": dict(backfill_status),
         "signal_count": len(signals),
     }
 
