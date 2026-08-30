@@ -1,0 +1,338 @@
+{
+  "analysis_version": 2,
+  "generated_at_utc": "2026-08-30T06:09:01.736908+00:00",
+  "report": {
+    "name": "pump_hunter_3.1.2_20260829_224120.txt",
+    "size_bytes": 3496295
+  },
+  "engine": {
+    "version": "3.1.2",
+    "sample_every_seconds": 2.0,
+    "market_context_hours": 72
+  },
+  "learner": {
+    "samples": 4149
+  },
+  "signals": {
+    "EARLY_MOVE": {
+      "signal_type_count": 85,
+      "all_mentions": 233
+    },
+    "PUMP": {
+      "signal_type_count": 56,
+      "all_mentions": 164
+    },
+    "COOLING": {
+      "signal_type_count": 116,
+      "all_mentions": 264
+    },
+    "EXIT": {
+      "signal_type_count": 143,
+      "all_mentions": 237
+    },
+    "RE_ENTRY": {
+      "signal_type_count": 0,
+      "all_mentions": 8
+    }
+  },
+  "assets": {
+    "HIGH": {
+      "EARLY_MOVE": 36,
+      "PUMP": 48,
+      "COOLING": 41,
+      "EXIT": 46,
+      "RE_ENTRY": 0
+    },
+    "GHST": {
+      "EARLY_MOVE": 20,
+      "PUMP": 0,
+      "COOLING": 6,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    "AVT": {
+      "EARLY_MOVE": 6,
+      "PUMP": 9,
+      "COOLING": 14,
+      "EXIT": 25,
+      "RE_ENTRY": 0
+    },
+    "NKN": {
+      "EARLY_MOVE": 25,
+      "PUMP": 41,
+      "COOLING": 15,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "BAL": {
+      "EARLY_MOVE": 61,
+      "PUMP": 5,
+      "COOLING": 38,
+      "EXIT": 64,
+      "RE_ENTRY": 0
+    },
+    "COTI": {
+      "EARLY_MOVE": 9,
+      "PUMP": 3,
+      "COOLING": 35,
+      "EXIT": 29,
+      "RE_ENTRY": 0
+    },
+    "AERGO": {
+      "EARLY_MOVE": 7,
+      "PUMP": 4,
+      "COOLING": 30,
+      "EXIT": 39,
+      "RE_ENTRY": 0
+    },
+    "NCT": {
+      "EARLY_MOVE": 0,
+      "PUMP": 1,
+      "COOLING": 7,
+      "EXIT": 10,
+      "RE_ENTRY": 0
+    },
+    "TRAC": {
+      "EARLY_MOVE": 0,
+      "PUMP": 1,
+      "COOLING": 0,
+      "EXIT": 17,
+      "RE_ENTRY": 0
+    },
+    "SHDW": {
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    "AST": {
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 44,
+      "EXIT": 46,
+      "RE_ENTRY": 0
+    },
+    "SWFTC": {
+      "EARLY_MOVE": 6,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "PERP": {
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 1,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    }
+  },
+  "flow": {
+    "binance_connected": true,
+    "gate_connected": true,
+    "no_recent_trades": 12
+  },
+  "events": {
+    "timeouts": 4,
+    "websocket": 7,
+    "tracebacks": 2,
+    "exceptions": 4,
+    "http_429": 1,
+    "http_500": 1
+  },
+  "interesting_lines": [
+    "\"avg_max_drawdown\": -0.7202423744292225",
+    "\"observed_at\": 1788042994,",
+    "\"observed_at\": 1788042992,",
+    "\"observed_at\": 1788042991,",
+    "\"observed_at\": 1788042989,",
+    "\"observed_at\": 1788042983,",
+    "\"observed_at\": 1788042969,",
+    "\"observed_at\": 1788042962,",
+    "\"observed_at\": 1788042961,",
+    "\"observed_at\": 1788042955,",
+    "\"observed_at\": 1788042940,",
+    "\"observed_at\": 1788042934,",
+    "\"observed_at\": 1788042932,",
+    "\"observed_at\": 1788042931,",
+    "\"observed_at\": 1788042923,",
+    "\"observed_at\": 1788042908,",
+    "\"observed_at\": 1788042905,",
+    "\"observed_at\": 1788042901,",
+    "\"19.5h\": 8.4296,",
+    "\"20.5h\": 3.2429,",
+    "\"peak_price\": 0.09429,",
+    "\"27m\": -2.9429,",
+    "\"28m\": -2.9429,",
+    "\"29m\": -2.9429,",
+    "\"30m\": -2.9429,",
+    "\"asset_30m_pct\": -2.9429,",
+    "\"30m\": -2.9429",
+    "\"21m\": 3.0429,",
+    "\"22m\": 3.0429,",
+    "\"2.5h\": -0.4295,",
+    "\"type\": \"RE_ENTRY\",",
+    "\"27m\": 2.4296,",
+    "\"asset_5m_pct\": -1.1429,",
+    "\"33h\": -6.4429,",
+    "\"relative_30m_pct\": 1.4291,",
+    "\"41h\": -2.4295,",
+    "\"1m\": 4.6429,",
+    "\"asset_1m_pct\": 4.6429,",
+    "\"relative_1m_pct\": 4.6429,",
+    "\"5m\": -1.5429,",
+    "\"relative_6h_pct\": 7.4294,",
+    "\"4.5h\": -6.4429,",
+    "\"63h\": -4.4295,",
+    "\"64h\": -4.4295,",
+    "\"65h\": -4.4295,",
+    "\"13.5h\": -2.6429,",
+    "\"1.75h\": 2.4295,",
+    "\"16m\": 10.4294,",
+    "\"34h\": 24.0429,",
+    "\"17m\": 10.4294,",
+    "\"28m\": -3.429,",
+    "\"timestamp\": 1788042984,",
+    "\"timestamp\": 1788042978,",
+    "\"timestamp\": 1788042976,",
+    "\"timestamp\": 1788042964,",
+    "\"timestamp\": 1788042949,",
+    "\"timestamp\": 1788042932,",
+    "\"timestamp\": 1788042917,",
+    "\"timestamp\": 1788042909,",
+    "\"2m\": -0.4298,",
+    "\"15m\": 0.4292,",
+    "\"12m\": 0.4292,",
+    "\"13m\": 0.4292,",
+    "\"11m\": 0.4292,",
+    "\"14m\": -1.1429,",
+    "\"started_at\": 1788042949,",
+    "\"ended_at\": 1788042932,",
+    "\"ended_at\": 1788042917,",
+    "\"since\": 1788042978",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: asyncio.exceptions.TimeoutError: timed out while closing connection",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: The above exception was the direct cause of the following exception:",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: Traceback (most recent call last):",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: websockets.exceptions.ConnectionClosedOK: sent 1000 (OK); then received 1000 (OK)"
+  ],
+  "top_assets": [
+    {
+      "asset": "HIGH",
+      "total": 171,
+      "EARLY_MOVE": 36,
+      "PUMP": 48,
+      "COOLING": 41,
+      "EXIT": 46,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "BAL",
+      "total": 168,
+      "EARLY_MOVE": 61,
+      "PUMP": 5,
+      "COOLING": 38,
+      "EXIT": 64,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AST",
+      "total": 90,
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 44,
+      "EXIT": 46,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "NKN",
+      "total": 81,
+      "EARLY_MOVE": 25,
+      "PUMP": 41,
+      "COOLING": 15,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AERGO",
+      "total": 80,
+      "EARLY_MOVE": 7,
+      "PUMP": 4,
+      "COOLING": 30,
+      "EXIT": 39,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "COTI",
+      "total": 76,
+      "EARLY_MOVE": 9,
+      "PUMP": 3,
+      "COOLING": 35,
+      "EXIT": 29,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AVT",
+      "total": 54,
+      "EARLY_MOVE": 6,
+      "PUMP": 9,
+      "COOLING": 14,
+      "EXIT": 25,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "GHST",
+      "total": 32,
+      "EARLY_MOVE": 20,
+      "PUMP": 0,
+      "COOLING": 6,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "NCT",
+      "total": 18,
+      "EARLY_MOVE": 0,
+      "PUMP": 1,
+      "COOLING": 7,
+      "EXIT": 10,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "TRAC",
+      "total": 18,
+      "EARLY_MOVE": 0,
+      "PUMP": 1,
+      "COOLING": 0,
+      "EXIT": 17,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "SWFTC",
+      "total": 6,
+      "EARLY_MOVE": 6,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "SHDW",
+      "total": 4,
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PERP",
+      "total": 1,
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 1,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    }
+  ]
+}
