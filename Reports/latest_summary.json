@@ -1,22 +1,22 @@
 {
-  "generated_at_utc": "2026-08-30T06:01:43.236840+00:00",
-  "full_report_path": "Reports/2026-08-30/00-12/pump_hunter_3.1.2_20260829_224120.txt",
-  "source_file": "pump_hunter_3.1.2_20260829_224120.txt",
-  "source_size_bytes": 3496295,
-  "version": "3.1.2",
+  "generated_at_utc": "2026-08-30T07:26:29.734267+00:00",
+  "full_report_path": "Reports/2026-08-30/00-12/pump_hunter_3.2.0_20260830_072623.txt",
+  "source_file": "pump_hunter_3.2.0_20260830_072623.txt",
+  "source_size_bytes": 3605582,
+  "version": "3.2.0",
   "engine": {
     "market_context_hours": 72,
     "sample_every_seconds": 2.0
   },
   "signals": {
-    "EARLY_MOVE": 85,
-    "PUMP": 56,
-    "COOLING": 116,
-    "EXIT": 143,
-    "RE_ENTRY": 0
+    "EARLY_MOVE": 115,
+    "PUMP": 58,
+    "COOLING": 123,
+    "EXIT": 83,
+    "RE_ENTRY": 21
   },
   "learner": {
-    "samples": 4149
+    "samples": 5000
   },
   "order_flow": {
     "binance_connected": true,
@@ -24,15 +24,19 @@
   },
   "system": {
     "memory_total": "945Mi",
-    "memory_used": "597Mi",
-    "memory_free": "83Mi"
+    "memory_used": "589Mi",
+    "memory_free": "170Mi"
   },
   "errors": [
     "\"failed_assets\": 0,",
-    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: keepalive ping failed",
-    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: asyncio.exceptions.TimeoutError: timed out while closing connection",
-    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: The above exception was the direct cause of the following exception:",
-    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: Traceback (most recent call last):",
-    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: websockets.exceptions.ConnectionClosedOK: sent 1000 (OK); then received 1000 (OK)"
+    "Aug 30 07:22:13 instance-20260826-1349 python[81993]: ERROR:    Exception in ASGI application",
+    "Aug 30 07:22:13 instance-20260826-1349 python[81993]: Traceback (most recent call last):",
+    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__",
+    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)",
+    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app",
+    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app",
+    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:     await wrap_app_handling_exceptions(app, request)(scope, receive, send)",
+    "Aug 30 07:22:13 instance-20260826-1349 python[81993]: RuntimeError: deque mutated during iteration",
+    "+ grep -Ei 'error|exception|traceback|failed|warning|oom|killed'"
   ]
 }
