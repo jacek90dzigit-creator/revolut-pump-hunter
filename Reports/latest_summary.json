@@ -1,19 +1,19 @@
 {
-  "generated_at_utc": "2026-08-30T12:56:38.651653+00:00",
-  "full_report_path": "Reports/2026-08-30/12-24/pump_hunter_3.2.0_20260830_125632.txt",
-  "source_file": "pump_hunter_3.2.0_20260830_125632.txt",
-  "source_size_bytes": 3984683,
+  "generated_at_utc": "2026-08-30T13:01:00.756724+00:00",
+  "full_report_path": "Reports/2026-08-30/12-24/pump_hunter_3.2.0_20260830_130054.txt",
+  "source_file": "pump_hunter_3.2.0_20260830_130054.txt",
+  "source_size_bytes": 3993728,
   "version": "3.2.0",
   "engine": {
     "market_context_hours": 72,
     "sample_every_seconds": 2.0
   },
   "signals": {
-    "EARLY_MOVE": 123,
-    "PUMP": 54,
-    "COOLING": 123,
-    "EXIT": 89,
-    "RE_ENTRY": 11
+    "EARLY_MOVE": 139,
+    "PUMP": 67,
+    "COOLING": 106,
+    "EXIT": 80,
+    "RE_ENTRY": 8
   },
   "learner": {
     "samples": 5000
@@ -22,12 +22,23 @@
     "binance_connected": true,
     "gate_connected": true
   },
+  "v32": {
+    "fusion_evaluated": 17,
+    "fusion_blocked": 5,
+    "early_blocked": 4,
+    "pump_blocked": 1,
+    "reentry_seen": 0,
+    "reentry_accepted": 0,
+    "ws_binance_reconnects": 0,
+    "ws_gate_reconnects": 0,
+    "active_state_count": 6,
+    "btc_regime": "NEUTRAL"
+  },
   "system": {
     "memory_total": "945Mi",
-    "memory_used": "585Mi",
-    "memory_free": "153Mi"
+    "memory_used": "587Mi",
+    "memory_free": "145Mi"
   },
-  "errors": [
-    "\"failed_assets\": 0,"
-  ]
+  "runtime_ok": true,
+  "runtime_errors": []
 }
