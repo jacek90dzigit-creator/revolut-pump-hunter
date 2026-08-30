@@ -1,19 +1,19 @@
 {
-  "generated_at_utc": "2026-08-30T12:50:25.941776+00:00",
-  "full_report_path": "Reports/2026-08-30/12-24/pump_hunter_3.2.0_20260830_125020.txt",
-  "source_file": "pump_hunter_3.2.0_20260830_125020.txt",
-  "source_size_bytes": 4061297,
+  "generated_at_utc": "2026-08-30T12:56:38.651653+00:00",
+  "full_report_path": "Reports/2026-08-30/12-24/pump_hunter_3.2.0_20260830_125632.txt",
+  "source_file": "pump_hunter_3.2.0_20260830_125632.txt",
+  "source_size_bytes": 3984683,
   "version": "3.2.0",
   "engine": {
     "market_context_hours": 72,
     "sample_every_seconds": 2.0
   },
   "signals": {
-    "EARLY_MOVE": 108,
-    "PUMP": 44,
-    "COOLING": 131,
-    "EXIT": 103,
-    "RE_ENTRY": 14
+    "EARLY_MOVE": 123,
+    "PUMP": 54,
+    "COOLING": 123,
+    "EXIT": 89,
+    "RE_ENTRY": 11
   },
   "learner": {
     "samples": 5000
@@ -24,8 +24,8 @@
   },
   "system": {
     "memory_total": "945Mi",
-    "memory_used": "570Mi",
-    "memory_free": "183Mi"
+    "memory_used": "585Mi",
+    "memory_free": "153Mi"
   },
   "errors": [
     "\"failed_assets\": 0,"
