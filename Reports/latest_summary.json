@@ -1,19 +1,19 @@
 {
-  "generated_at_utc": "2026-08-30T07:26:29.734267+00:00",
-  "full_report_path": "Reports/2026-08-30/00-12/pump_hunter_3.2.0_20260830_072623.txt",
-  "source_file": "pump_hunter_3.2.0_20260830_072623.txt",
-  "source_size_bytes": 3605582,
+  "generated_at_utc": "2026-08-30T08:06:00.666498+00:00",
+  "full_report_path": "Reports/2026-08-30/00-12/pump_hunter_3.2.0_20260830_080556.txt",
+  "source_file": "pump_hunter_3.2.0_20260830_080556.txt",
+  "source_size_bytes": 3790738,
   "version": "3.2.0",
   "engine": {
     "market_context_hours": 72,
     "sample_every_seconds": 2.0
   },
   "signals": {
-    "EARLY_MOVE": 115,
-    "PUMP": 58,
-    "COOLING": 123,
-    "EXIT": 83,
-    "RE_ENTRY": 21
+    "EARLY_MOVE": 128,
+    "PUMP": 48,
+    "COOLING": 135,
+    "EXIT": 65,
+    "RE_ENTRY": 24
   },
   "learner": {
     "samples": 5000
@@ -24,19 +24,10 @@
   },
   "system": {
     "memory_total": "945Mi",
-    "memory_used": "589Mi",
-    "memory_free": "170Mi"
+    "memory_used": "539Mi",
+    "memory_free": "201Mi"
   },
   "errors": [
-    "\"failed_assets\": 0,",
-    "Aug 30 07:22:13 instance-20260826-1349 python[81993]: ERROR:    Exception in ASGI application",
-    "Aug 30 07:22:13 instance-20260826-1349 python[81993]: Traceback (most recent call last):",
-    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__",
-    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)",
-    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app",
-    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app",
-    "Aug 30 07:22:13 instance-20260826-1349 python[81993]:     await wrap_app_handling_exceptions(app, request)(scope, receive, send)",
-    "Aug 30 07:22:13 instance-20260826-1349 python[81993]: RuntimeError: deque mutated during iteration",
-    "+ grep -Ei 'error|exception|traceback|failed|warning|oom|killed'"
+    "\"failed_assets\": 0,"
   ]
 }
