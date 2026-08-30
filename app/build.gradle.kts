@@ -12,8 +12,8 @@ android {
         applicationId = "com.revolutscanner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.0-ui"
+        versionCode = 30
+        versionName = "3.0"
     }
 
     buildFeatures {

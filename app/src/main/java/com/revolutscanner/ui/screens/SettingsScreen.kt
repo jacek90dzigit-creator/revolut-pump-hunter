@@ -4,21 +4,112 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.revolutscanner.ui.components.*
+import com.revolutscanner.ui.components.SectionHeader
+import com.revolutscanner.ui.components.ServerStatusBadge
 
 @Composable
-fun SettingsScreen(){
-    var pump by remember{mutableStateOf(true)};var exit by remember{mutableStateOf(true)};var vibration by remember{mutableStateOf(true)}
-    LazyColumn(modifier=Modifier.padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        item{SectionHeader("⚙️ Ustawienia","Ustawienia aplikacji, nie silnika backendu");DemoDataBadge()}
-        item{Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){Column(Modifier.padding(16.dp)){SettingSwitch("Powiadomienia PUMP",pump){pump=it};SettingSwitch("Powiadomienia EXIT",exit){exit=it};SettingSwitch("Wibracja",vibration){vibration=it}}}}
-        item{Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){Column(Modifier.padding(16.dp)){MetricRow("Minimalny Pump Score","60");MetricRow("Minimalny Exit Score","50");MetricRow("Motyw","Dark");MetricRow("Warstwa danych","DEMO / MOCK");MetricRow("Backend docelowy","3.1.2");MetricRow("Wersja UI","Android 2.1")}}}
-        item{Text("Android 2.2: podłączenie prawdziwych danych z Oracle.",color=MaterialTheme.colorScheme.onSurfaceVariant);Spacer(Modifier.height(24.dp))}
+fun SettingsScreen(
+    serverUrl: String,
+    serverOnline: Boolean,
+    engineVersion: String,
+    errorMessage: String?,
+    onSaveServerUrl: (String) -> Unit,
+    onRefresh: () -> Unit
+) {
+    var url by remember(serverUrl) { mutableStateOf(serverUrl) }
+
+    LazyColumn(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SectionHeader(
+                "Ustawienia",
+                "Android 3.0 LIVE • połączenie z Pump Hunter Engine"
+            )
+        }
+
+        item {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Serwer Oracle", style = MaterialTheme.typography.titleMedium)
+                        ServerStatusBadge(serverOnline)
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = url,
+                        onValueChange = { url = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Adres serwera") },
+                        placeholder = { Text("http://IP_SERWERA:8000") }
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Button(
+                        onClick = { onSaveServerUrl(url) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Zapisz i połącz")
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    OutlinedButton(
+                        onClick = onRefresh,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Odśwież teraz")
+                    }
+
+                    errorMessage?.let {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Informacje", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Aplikacja: Android 3.0")
+                    Text("Engine: $engineVersion")
+                    Text("Odświeżanie: co 15 s")
+                    Text("Źródło sygnałów: /signals")
+                    Text("Stan silnika: / + /v31-engine")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Watchlista ★ jest zapisywana lokalnie na telefonie.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(24.dp)) }
     }
-}
-@Composable private fun SettingSwitch(label:String,checked:Boolean,onCheckedChange:(Boolean)->Unit){
-    Row(Modifier.fillMaxWidth().padding(vertical=6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){Text(label);Switch(checked=checked,onCheckedChange=onCheckedChange)}
 }
