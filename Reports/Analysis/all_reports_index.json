@@ -1,0 +1,827 @@
+{
+  "generated_at_utc": "2026-08-30T06:09:08.350361+00:00",
+  "reports_count": 8,
+  "reports": [
+    {
+      "report": "pump_hunter_snapshot.txt",
+      "analysis": "pump_hunter_snapshot.json",
+      "size_bytes": 148201,
+      "version": "2.9.5",
+      "learner_samples": 0,
+      "signals": {
+        "EARLY_MOVE": 0,
+        "PUMP": 0,
+        "COOLING": 0,
+        "EXIT": 0,
+        "RE_ENTRY": 0
+      },
+      "events": {
+        "timeouts": 32,
+        "websocket": 9,
+        "tracebacks": 0,
+        "exceptions": 25,
+        "http_429": 2,
+        "http_500": 5
+      },
+      "top_assets": []
+    },
+    {
+      "report": "pump_hunter_3.0_full_test.txt",
+      "analysis": "pump_hunter_3.0_full_test.json",
+      "size_bytes": 115635,
+      "version": "3.0.0",
+      "learner_samples": 53,
+      "signals": {
+        "EARLY_MOVE": 27,
+        "PUMP": 13,
+        "COOLING": 36,
+        "EXIT": 23,
+        "RE_ENTRY": 1
+      },
+      "events": {
+        "timeouts": 0,
+        "websocket": 1,
+        "tracebacks": 0,
+        "exceptions": 0,
+        "http_429": 0,
+        "http_500": 1
+      },
+      "top_assets": [
+        {
+          "asset": "NKN",
+          "total": 28,
+          "EARLY_MOVE": 8,
+          "PUMP": 5,
+          "COOLING": 8,
+          "EXIT": 6,
+          "RE_ENTRY": 1
+        },
+        {
+          "asset": "SHDW",
+          "total": 22,
+          "EARLY_MOVE": 0,
+          "PUMP": 0,
+          "COOLING": 11,
+          "EXIT": 11,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "PYR",
+          "total": 20,
+          "EARLY_MOVE": 6,
+          "PUMP": 4,
+          "COOLING": 4,
+          "EXIT": 5,
+          "RE_ENTRY": 1
+        },
+        {
+          "asset": "HIGH",
+          "total": 20,
+          "EARLY_MOVE": 7,
+          "PUMP": 1,
+          "COOLING": 7,
+          "EXIT": 5,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "GHST",
+          "total": 15,
+          "EARLY_MOVE": 4,
+          "PUMP": 0,
+          "COOLING": 6,
+          "EXIT": 5,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "MDT",
+          "total": 12,
+          "EARLY_MOVE": 1,
+          "PUMP": 2,
+          "COOLING": 5,
+          "EXIT": 4,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "HONEY",
+          "total": 10,
+          "EARLY_MOVE": 3,
+          "PUMP": 3,
+          "COOLING": 4,
+          "EXIT": 0,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "COTI",
+          "total": 10,
+          "EARLY_MOVE": 5,
+          "PUMP": 0,
+          "COOLING": 4,
+          "EXIT": 1,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "NCT",
+          "total": 10,
+          "EARLY_MOVE": 3,
+          "PUMP": 0,
+          "COOLING": 4,
+          "EXIT": 3,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "LRDS",
+          "total": 8,
+          "EARLY_MOVE": 0,
+          "PUMP": 0,
+          "COOLING": 7,
+          "EXIT": 1,
+          "RE_ENTRY": 0
+        }
+      ]
+    },
+    {
+      "report": "pump_hunter_3.1_full_test.txt",
+      "analysis": "pump_hunter_3.1_full_test.json",
+      "size_bytes": 106196,
+      "version": "3.1.0",
+      "learner_samples": 1559,
+      "signals": {
+        "EARLY_MOVE": 51,
+        "PUMP": 34,
+        "COOLING": 50,
+        "EXIT": 40,
+        "RE_ENTRY": 17
+      },
+      "events": {
+        "timeouts": 0,
+        "websocket": 0,
+        "tracebacks": 0,
+        "exceptions": 0,
+        "http_429": 1,
+        "http_500": 0
+      },
+      "top_assets": [
+        {
+          "asset": "NCT",
+          "total": 27,
+          "EARLY_MOVE": 5,
+          "PUMP": 4,
+          "COOLING": 10,
+          "EXIT": 8,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "KRL",
+          "total": 16,
+          "EARLY_MOVE": 15,
+          "PUMP": 0,
+          "COOLING": 1,
+          "EXIT": 0,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "PRCL",
+          "total": 14,
+          "EARLY_MOVE": 6,
+          "PUMP": 1,
+          "COOLING": 3,
+          "EXIT": 3,
+          "RE_ENTRY": 1
+        },
+        {
+          "asset": "NKN",
+          "total": 14,
+          "EARLY_MOVE": 3,
+          "PUMP": 2,
+          "COOLING": 4,
+          "EXIT": 5,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "HONEY",
+          "total": 14,
+          "EARLY_MOVE": 3,
+          "PUMP": 5,
+          "COOLING": 4,
+          "EXIT": 2,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "RAD",
+          "total": 12,
+          "EARLY_MOVE": 2,
+          "PUMP": 0,
+          "COOLING": 5,
+          "EXIT": 5,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "OXT",
+          "total": 12,
+          "EARLY_MOVE": 0,
+          "PUMP": 4,
+          "COOLING": 5,
+          "EXIT": 3,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "LRDS",
+          "total": 10,
+          "EARLY_MOVE": 0,
+          "PUMP": 4,
+          "COOLING": 5,
+          "EXIT": 1,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AUDIO",
+          "total": 10,
+          "EARLY_MOVE": 2,
+          "PUMP": 1,
+          "COOLING": 2,
+          "EXIT": 5,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "POND",
+          "total": 10,
+          "EARLY_MOVE": 3,
+          "PUMP": 0,
+          "COOLING": 3,
+          "EXIT": 4,
+          "RE_ENTRY": 0
+        }
+      ]
+    },
+    {
+      "report": "pump_hunter_3.1.2_before_drive_20260829_140334.txt",
+      "analysis": "pump_hunter_3.1.2_before_drive_20260829_140334.json",
+      "size_bytes": 2381593,
+      "version": "3.1.2",
+      "learner_samples": 1580,
+      "signals": {
+        "EARLY_MOVE": 174,
+        "PUMP": 80,
+        "COOLING": 92,
+        "EXIT": 51,
+        "RE_ENTRY": 3
+      },
+      "events": {
+        "timeouts": 0,
+        "websocket": 0,
+        "tracebacks": 2,
+        "exceptions": 2,
+        "http_429": 1,
+        "http_500": 3
+      },
+      "top_assets": [
+        {
+          "asset": "HOPR",
+          "total": 112,
+          "EARLY_MOVE": 35,
+          "PUMP": 38,
+          "COOLING": 35,
+          "EXIT": 4,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "NCT",
+          "total": 101,
+          "EARLY_MOVE": 45,
+          "PUMP": 9,
+          "COOLING": 37,
+          "EXIT": 10,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "POLS",
+          "total": 100,
+          "EARLY_MOVE": 44,
+          "PUMP": 39,
+          "COOLING": 11,
+          "EXIT": 5,
+          "RE_ENTRY": 1
+        },
+        {
+          "asset": "NKN",
+          "total": 84,
+          "EARLY_MOVE": 28,
+          "PUMP": 22,
+          "COOLING": 18,
+          "EXIT": 16,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "DOLO",
+          "total": 38,
+          "EARLY_MOVE": 26,
+          "PUMP": 12,
+          "COOLING": 0,
+          "EXIT": 0,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AI",
+          "total": 36,
+          "EARLY_MOVE": 24,
+          "PUMP": 2,
+          "COOLING": 6,
+          "EXIT": 4,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "EUL",
+          "total": 36,
+          "EARLY_MOVE": 33,
+          "PUMP": 1,
+          "COOLING": 2,
+          "EXIT": 0,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "PRCL",
+          "total": 28,
+          "EARLY_MOVE": 6,
+          "PUMP": 2,
+          "COOLING": 8,
+          "EXIT": 7,
+          "RE_ENTRY": 5
+        },
+        {
+          "asset": "LCX",
+          "total": 24,
+          "EARLY_MOVE": 24,
+          "PUMP": 0,
+          "COOLING": 0,
+          "EXIT": 0,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "GST",
+          "total": 20,
+          "EARLY_MOVE": 20,
+          "PUMP": 0,
+          "COOLING": 0,
+          "EXIT": 0,
+          "RE_ENTRY": 0
+        }
+      ]
+    },
+    {
+      "report": "pump_hunter_3.1.2_20260829_143518.txt",
+      "analysis": "pump_hunter_3.1.2_20260829_143518.json",
+      "size_bytes": 3016513,
+      "version": "3.1.2",
+      "learner_samples": 1644,
+      "signals": {
+        "EARLY_MOVE": 147,
+        "PUMP": 46,
+        "COOLING": 116,
+        "EXIT": 91,
+        "RE_ENTRY": 0
+      },
+      "events": {
+        "timeouts": 0,
+        "websocket": 0,
+        "tracebacks": 0,
+        "exceptions": 0,
+        "http_429": 9,
+        "http_500": 2
+      },
+      "top_assets": [
+        {
+          "asset": "MDT",
+          "total": 128,
+          "EARLY_MOVE": 47,
+          "PUMP": 16,
+          "COOLING": 34,
+          "EXIT": 31,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "NKN",
+          "total": 96,
+          "EARLY_MOVE": 40,
+          "PUMP": 18,
+          "COOLING": 26,
+          "EXIT": 12,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "NCT",
+          "total": 92,
+          "EARLY_MOVE": 34,
+          "PUMP": 7,
+          "COOLING": 27,
+          "EXIT": 24,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "POLS",
+          "total": 88,
+          "EARLY_MOVE": 8,
+          "PUMP": 19,
+          "COOLING": 31,
+          "EXIT": 30,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "ZEN",
+          "total": 84,
+          "EARLY_MOVE": 24,
+          "PUMP": 3,
+          "COOLING": 22,
+          "EXIT": 35,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "PYR",
+          "total": 82,
+          "EARLY_MOVE": 31,
+          "PUMP": 3,
+          "COOLING": 25,
+          "EXIT": 23,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "KARRAT",
+          "total": 64,
+          "EARLY_MOVE": 21,
+          "PUMP": 2,
+          "COOLING": 26,
+          "EXIT": 15,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "DASH",
+          "total": 58,
+          "EARLY_MOVE": 29,
+          "PUMP": 4,
+          "COOLING": 23,
+          "EXIT": 2,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "GHST",
+          "total": 28,
+          "EARLY_MOVE": 17,
+          "PUMP": 3,
+          "COOLING": 3,
+          "EXIT": 5,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "HIGH",
+          "total": 28,
+          "EARLY_MOVE": 17,
+          "PUMP": 4,
+          "COOLING": 5,
+          "EXIT": 2,
+          "RE_ENTRY": 0
+        }
+      ]
+    },
+    {
+      "report": "pump_hunter_3.1.2_20260829_143647.txt",
+      "analysis": "pump_hunter_3.1.2_20260829_143647.json",
+      "size_bytes": 3048526,
+      "version": "3.1.2",
+      "learner_samples": 1644,
+      "signals": {
+        "EARLY_MOVE": 137,
+        "PUMP": 45,
+        "COOLING": 124,
+        "EXIT": 94,
+        "RE_ENTRY": 0
+      },
+      "events": {
+        "timeouts": 0,
+        "websocket": 0,
+        "tracebacks": 0,
+        "exceptions": 0,
+        "http_429": 8,
+        "http_500": 1
+      },
+      "top_assets": [
+        {
+          "asset": "MDT",
+          "total": 120,
+          "EARLY_MOVE": 46,
+          "PUMP": 11,
+          "COOLING": 29,
+          "EXIT": 34,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "NKN",
+          "total": 98,
+          "EARLY_MOVE": 34,
+          "PUMP": 19,
+          "COOLING": 30,
+          "EXIT": 15,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "POLS",
+          "total": 98,
+          "EARLY_MOVE": 11,
+          "PUMP": 18,
+          "COOLING": 40,
+          "EXIT": 29,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "ZEN",
+          "total": 82,
+          "EARLY_MOVE": 23,
+          "PUMP": 2,
+          "COOLING": 26,
+          "EXIT": 31,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "PYR",
+          "total": 80,
+          "EARLY_MOVE": 26,
+          "PUMP": 5,
+          "COOLING": 23,
+          "EXIT": 26,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "NCT",
+          "total": 74,
+          "EARLY_MOVE": 29,
+          "PUMP": 5,
+          "COOLING": 21,
+          "EXIT": 19,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "KARRAT",
+          "total": 72,
+          "EARLY_MOVE": 16,
+          "PUMP": 2,
+          "COOLING": 30,
+          "EXIT": 24,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "DASH",
+          "total": 57,
+          "EARLY_MOVE": 25,
+          "PUMP": 4,
+          "COOLING": 26,
+          "EXIT": 2,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AMP",
+          "total": 32,
+          "EARLY_MOVE": 24,
+          "PUMP": 0,
+          "COOLING": 7,
+          "EXIT": 1,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AERGO",
+          "total": 29,
+          "EARLY_MOVE": 2,
+          "PUMP": 19,
+          "COOLING": 8,
+          "EXIT": 0,
+          "RE_ENTRY": 0
+        }
+      ]
+    },
+    {
+      "report": "pump_hunter_3.1.2_20260829_201918.txt",
+      "analysis": "pump_hunter_3.1.2_20260829_201918.json",
+      "size_bytes": 3419904,
+      "version": "3.1.2",
+      "learner_samples": 3412,
+      "signals": {
+        "EARLY_MOVE": 122,
+        "PUMP": 33,
+        "COOLING": 150,
+        "EXIT": 95,
+        "RE_ENTRY": 0
+      },
+      "events": {
+        "timeouts": 4,
+        "websocket": 7,
+        "tracebacks": 2,
+        "exceptions": 4,
+        "http_429": 3,
+        "http_500": 1
+      },
+      "top_assets": [
+        {
+          "asset": "OXT",
+          "total": 84,
+          "EARLY_MOVE": 28,
+          "PUMP": 0,
+          "COOLING": 39,
+          "EXIT": 17,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "HIGH",
+          "total": 78,
+          "EARLY_MOVE": 11,
+          "PUMP": 12,
+          "COOLING": 25,
+          "EXIT": 30,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "HONEY",
+          "total": 73,
+          "EARLY_MOVE": 14,
+          "PUMP": 3,
+          "COOLING": 23,
+          "EXIT": 33,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "KARRAT",
+          "total": 68,
+          "EARLY_MOVE": 25,
+          "PUMP": 3,
+          "COOLING": 22,
+          "EXIT": 18,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "BENJI",
+          "total": 66,
+          "EARLY_MOVE": 17,
+          "PUMP": 13,
+          "COOLING": 19,
+          "EXIT": 17,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "MDT",
+          "total": 64,
+          "EARLY_MOVE": 15,
+          "PUMP": 5,
+          "COOLING": 24,
+          "EXIT": 20,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AVT",
+          "total": 64,
+          "EARLY_MOVE": 10,
+          "PUMP": 21,
+          "COOLING": 16,
+          "EXIT": 17,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AERGO",
+          "total": 62,
+          "EARLY_MOVE": 27,
+          "PUMP": 4,
+          "COOLING": 28,
+          "EXIT": 3,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "PYR",
+          "total": 56,
+          "EARLY_MOVE": 20,
+          "PUMP": 1,
+          "COOLING": 30,
+          "EXIT": 5,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "LRDS",
+          "total": 45,
+          "EARLY_MOVE": 3,
+          "PUMP": 0,
+          "COOLING": 39,
+          "EXIT": 3,
+          "RE_ENTRY": 0
+        }
+      ]
+    },
+    {
+      "report": "pump_hunter_3.1.2_20260829_224120.txt",
+      "analysis": "pump_hunter_3.1.2_20260829_224120.json",
+      "size_bytes": 3496295,
+      "version": "3.1.2",
+      "learner_samples": 4149,
+      "signals": {
+        "EARLY_MOVE": 85,
+        "PUMP": 56,
+        "COOLING": 116,
+        "EXIT": 143,
+        "RE_ENTRY": 0
+      },
+      "events": {
+        "timeouts": 4,
+        "websocket": 7,
+        "tracebacks": 2,
+        "exceptions": 4,
+        "http_429": 1,
+        "http_500": 1
+      },
+      "top_assets": [
+        {
+          "asset": "HIGH",
+          "total": 171,
+          "EARLY_MOVE": 36,
+          "PUMP": 48,
+          "COOLING": 41,
+          "EXIT": 46,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "BAL",
+          "total": 168,
+          "EARLY_MOVE": 61,
+          "PUMP": 5,
+          "COOLING": 38,
+          "EXIT": 64,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AST",
+          "total": 90,
+          "EARLY_MOVE": 0,
+          "PUMP": 0,
+          "COOLING": 44,
+          "EXIT": 46,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "NKN",
+          "total": 81,
+          "EARLY_MOVE": 25,
+          "PUMP": 41,
+          "COOLING": 15,
+          "EXIT": 0,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AERGO",
+          "total": 80,
+          "EARLY_MOVE": 7,
+          "PUMP": 4,
+          "COOLING": 30,
+          "EXIT": 39,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "COTI",
+          "total": 76,
+          "EARLY_MOVE": 9,
+          "PUMP": 3,
+          "COOLING": 35,
+          "EXIT": 29,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "AVT",
+          "total": 54,
+          "EARLY_MOVE": 6,
+          "PUMP": 9,
+          "COOLING": 14,
+          "EXIT": 25,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "GHST",
+          "total": 32,
+          "EARLY_MOVE": 20,
+          "PUMP": 0,
+          "COOLING": 6,
+          "EXIT": 6,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "NCT",
+          "total": 18,
+          "EARLY_MOVE": 0,
+          "PUMP": 1,
+          "COOLING": 7,
+          "EXIT": 10,
+          "RE_ENTRY": 0
+        },
+        {
+          "asset": "TRAC",
+          "total": 18,
+          "EARLY_MOVE": 0,
+          "PUMP": 1,
+          "COOLING": 0,
+          "EXIT": 17,
+          "RE_ENTRY": 0
+        }
+      ]
+    }
+  ]
+}
