@@ -1,0 +1,38 @@
+{
+  "generated_at_utc": "2026-08-30T06:01:43.236840+00:00",
+  "full_report_path": "Reports/2026-08-30/00-12/pump_hunter_3.1.2_20260829_224120.txt",
+  "source_file": "pump_hunter_3.1.2_20260829_224120.txt",
+  "source_size_bytes": 3496295,
+  "version": "3.1.2",
+  "engine": {
+    "market_context_hours": 72,
+    "sample_every_seconds": 2.0
+  },
+  "signals": {
+    "EARLY_MOVE": 85,
+    "PUMP": 56,
+    "COOLING": 116,
+    "EXIT": 143,
+    "RE_ENTRY": 0
+  },
+  "learner": {
+    "samples": 4149
+  },
+  "order_flow": {
+    "binance_connected": true,
+    "gate_connected": true
+  },
+  "system": {
+    "memory_total": "945Mi",
+    "memory_used": "597Mi",
+    "memory_free": "83Mi"
+  },
+  "errors": [
+    "\"failed_assets\": 0,",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: keepalive ping failed",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: asyncio.exceptions.TimeoutError: timed out while closing connection",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: The above exception was the direct cause of the following exception:",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: Traceback (most recent call last):",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: websockets.exceptions.ConnectionClosedOK: sent 1000 (OK); then received 1000 (OK)"
+  ]
+}
