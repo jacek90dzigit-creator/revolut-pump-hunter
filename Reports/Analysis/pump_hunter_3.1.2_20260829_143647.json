@@ -1,0 +1,336 @@
+{
+  "analysis_version": 2,
+  "generated_at_utc": "2026-08-30T06:08:48.951609+00:00",
+  "report": {
+    "name": "pump_hunter_3.1.2_20260829_143647.txt",
+    "size_bytes": 3048526
+  },
+  "engine": {
+    "version": "3.1.2",
+    "sample_every_seconds": 2.0,
+    "market_context_hours": 72
+  },
+  "learner": {
+    "samples": 1644
+  },
+  "signals": {
+    "EARLY_MOVE": {
+      "signal_type_count": 137,
+      "all_mentions": 290
+    },
+    "PUMP": {
+      "signal_type_count": 45,
+      "all_mentions": 132
+    },
+    "COOLING": {
+      "signal_type_count": 124,
+      "all_mentions": 263
+    },
+    "EXIT": {
+      "signal_type_count": 94,
+      "all_mentions": 185
+    },
+    "RE_ENTRY": {
+      "signal_type_count": 0,
+      "all_mentions": 11
+    }
+  },
+  "assets": {
+    "AERGO": {
+      "EARLY_MOVE": 2,
+      "PUMP": 19,
+      "COOLING": 8,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "NKN": {
+      "EARLY_MOVE": 34,
+      "PUMP": 19,
+      "COOLING": 30,
+      "EXIT": 15,
+      "RE_ENTRY": 0
+    },
+    "KARRAT": {
+      "EARLY_MOVE": 16,
+      "PUMP": 2,
+      "COOLING": 30,
+      "EXIT": 24,
+      "RE_ENTRY": 0
+    },
+    "ZEN": {
+      "EARLY_MOVE": 23,
+      "PUMP": 2,
+      "COOLING": 26,
+      "EXIT": 31,
+      "RE_ENTRY": 0
+    },
+    "AMP": {
+      "EARLY_MOVE": 24,
+      "PUMP": 0,
+      "COOLING": 7,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    "DASH": {
+      "EARLY_MOVE": 25,
+      "PUMP": 4,
+      "COOLING": 26,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    "POLS": {
+      "EARLY_MOVE": 11,
+      "PUMP": 18,
+      "COOLING": 40,
+      "EXIT": 29,
+      "RE_ENTRY": 0
+    },
+    "PYR": {
+      "EARLY_MOVE": 26,
+      "PUMP": 5,
+      "COOLING": 23,
+      "EXIT": 26,
+      "RE_ENTRY": 0
+    },
+    "MDT": {
+      "EARLY_MOVE": 46,
+      "PUMP": 11,
+      "COOLING": 29,
+      "EXIT": 34,
+      "RE_ENTRY": 0
+    },
+    "GHST": {
+      "EARLY_MOVE": 16,
+      "PUMP": 1,
+      "COOLING": 3,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    "HONEY": {
+      "EARLY_MOVE": 8,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "NCT": {
+      "EARLY_MOVE": 29,
+      "PUMP": 5,
+      "COOLING": 21,
+      "EXIT": 19,
+      "RE_ENTRY": 0
+    },
+    "HIGH": {
+      "EARLY_MOVE": 13,
+      "PUMP": 4,
+      "COOLING": 4,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    "TRU": {
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 1,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    }
+  },
+  "flow": {
+    "binance_connected": true,
+    "gate_connected": true,
+    "no_recent_trades": 2
+  },
+  "events": {
+    "timeouts": 0,
+    "websocket": 0,
+    "tracebacks": 0,
+    "exceptions": 0,
+    "http_429": 8,
+    "http_500": 1
+  },
+  "interesting_lines": [
+    "\"avg_change\": -0.2678454094292802,",
+    "\"peak_price\": 0.09429,",
+    "\"27m\": -0.2429,",
+    "\"13m\": 0.4291,",
+    "\"5.25h\": -12.429,",
+    "\"1h\": -0.4299,",
+    "\"change_1h_pct\": -0.4299,",
+    "\"sell_notional_1m\": 24.4291,",
+    "\"volume_ratio\": 2.429,",
+    "\"volume_ratio_raw\": 2.429,",
+    "\"17h\": 7.1429,",
+    "\"42h\": 32.4296,",
+    "\"11h\": 0.1429,",
+    "\"relative_24h_pct\": 6.4292",
+    "\"32h\": 21.0429,",
+    "\"type\": \"RE_ENTRY\",",
+    "\"17m\": -0.4298,",
+    "\"29m\": 2.6429,",
+    "\"11.5h\": 3.5429,",
+    "\"49h\": 3.5429,",
+    "\"5m\": 0.5429,",
+    "\"asset_5m_pct\": 0.5429,",
+    "\"price_impulse_pct\": 0.5429,",
+    "\"bullish_impulse_pct\": 0.5429,",
+    "\"26m\": -1.8429,",
+    "\"27m\": -1.8429,",
+    "\"15m\": -8.6429,",
+    "\"16m\": -8.6429,",
+    "\"7m\": 0.4292,",
+    "\"9m\": 5.4299,",
+    "\"asset_5m_pct\": -0.1429,",
+    "\"5m\": -0.1429,",
+    "\"8m\": -0.0429,",
+    "\"5m\": 0.4292,",
+    "\"6m\": 0.4292,",
+    "\"asset_5m_pct\": 0.4292,",
+    "\"bullish_impulse_pct\": 0.4292,",
+    "\"19m\": -0.4292,",
+    "\"20m\": -0.4292,",
+    "\"21m\": -0.4292,",
+    "\"22m\": -0.4292,",
+    "\"26m\": -0.4292,",
+    "\"27m\": -0.4292,",
+    "\"28m\": -0.4292,",
+    "\"29m\": -0.4292,",
+    "\"30m\": -0.4292",
+    "\"6m\": -0.4292,",
+    "\"7m\": -0.4292,",
+    "\"9m\": -0.4292,",
+    "\"11m\": -0.4292,",
+    "\"8m\": 0.4292,",
+    "\"9m\": 0.4292,",
+    "\"5m\": -0.4292,",
+    "\"8m\": -0.4292,",
+    "\"weighted_velocity_pct\": 0.2429,"
+  ],
+  "top_assets": [
+    {
+      "asset": "MDT",
+      "total": 120,
+      "EARLY_MOVE": 46,
+      "PUMP": 11,
+      "COOLING": 29,
+      "EXIT": 34,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "NKN",
+      "total": 98,
+      "EARLY_MOVE": 34,
+      "PUMP": 19,
+      "COOLING": 30,
+      "EXIT": 15,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "POLS",
+      "total": 98,
+      "EARLY_MOVE": 11,
+      "PUMP": 18,
+      "COOLING": 40,
+      "EXIT": 29,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "ZEN",
+      "total": 82,
+      "EARLY_MOVE": 23,
+      "PUMP": 2,
+      "COOLING": 26,
+      "EXIT": 31,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PYR",
+      "total": 80,
+      "EARLY_MOVE": 26,
+      "PUMP": 5,
+      "COOLING": 23,
+      "EXIT": 26,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "NCT",
+      "total": 74,
+      "EARLY_MOVE": 29,
+      "PUMP": 5,
+      "COOLING": 21,
+      "EXIT": 19,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "KARRAT",
+      "total": 72,
+      "EARLY_MOVE": 16,
+      "PUMP": 2,
+      "COOLING": 30,
+      "EXIT": 24,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "DASH",
+      "total": 57,
+      "EARLY_MOVE": 25,
+      "PUMP": 4,
+      "COOLING": 26,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AMP",
+      "total": 32,
+      "EARLY_MOVE": 24,
+      "PUMP": 0,
+      "COOLING": 7,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AERGO",
+      "total": 29,
+      "EARLY_MOVE": 2,
+      "PUMP": 19,
+      "COOLING": 8,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "GHST",
+      "total": 26,
+      "EARLY_MOVE": 16,
+      "PUMP": 1,
+      "COOLING": 3,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "HIGH",
+      "total": 22,
+      "EARLY_MOVE": 13,
+      "PUMP": 4,
+      "COOLING": 4,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "HONEY",
+      "total": 8,
+      "EARLY_MOVE": 8,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "TRU",
+      "total": 1,
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 1,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    }
+  ]
+}
