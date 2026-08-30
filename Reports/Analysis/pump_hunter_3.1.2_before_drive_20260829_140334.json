@@ -1,0 +1,520 @@
+{
+  "analysis_version": 2,
+  "generated_at_utc": "2026-08-30T06:08:38.544538+00:00",
+  "report": {
+    "name": "pump_hunter_3.1.2_before_drive_20260829_140334.txt",
+    "size_bytes": 2381593
+  },
+  "engine": {
+    "version": "3.1.2",
+    "sample_every_seconds": 2.0,
+    "market_context_hours": 72
+  },
+  "learner": {
+    "samples": 1580
+  },
+  "signals": {
+    "EARLY_MOVE": {
+      "signal_type_count": 174,
+      "all_mentions": 311
+    },
+    "PUMP": {
+      "signal_type_count": 80,
+      "all_mentions": 244
+    },
+    "COOLING": {
+      "signal_type_count": 92,
+      "all_mentions": 216
+    },
+    "EXIT": {
+      "signal_type_count": 51,
+      "all_mentions": 126
+    },
+    "RE_ENTRY": {
+      "signal_type_count": 3,
+      "all_mentions": 18
+    }
+  },
+  "assets": {
+    "MDT": {
+      "EARLY_MOVE": 2,
+      "PUMP": 5,
+      "COOLING": 5,
+      "EXIT": 7,
+      "RE_ENTRY": 0
+    },
+    "NKN": {
+      "EARLY_MOVE": 28,
+      "PUMP": 22,
+      "COOLING": 18,
+      "EXIT": 16,
+      "RE_ENTRY": 0
+    },
+    "AI": {
+      "EARLY_MOVE": 24,
+      "PUMP": 2,
+      "COOLING": 6,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    "POLS": {
+      "EARLY_MOVE": 44,
+      "PUMP": 39,
+      "COOLING": 11,
+      "EXIT": 5,
+      "RE_ENTRY": 1
+    },
+    "GST": {
+      "EARLY_MOVE": 20,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "EUL": {
+      "EARLY_MOVE": 33,
+      "PUMP": 1,
+      "COOLING": 2,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "DOLO": {
+      "EARLY_MOVE": 26,
+      "PUMP": 12,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "HOPR": {
+      "EARLY_MOVE": 35,
+      "PUMP": 38,
+      "COOLING": 35,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    "NCT": {
+      "EARLY_MOVE": 45,
+      "PUMP": 9,
+      "COOLING": 37,
+      "EXIT": 10,
+      "RE_ENTRY": 0
+    },
+    "LCX": {
+      "EARLY_MOVE": 24,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "TRUMP": {
+      "EARLY_MOVE": 5,
+      "PUMP": 1,
+      "COOLING": 0,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    "LRDS": {
+      "EARLY_MOVE": 1,
+      "PUMP": 5,
+      "COOLING": 7,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    "PRCL": {
+      "EARLY_MOVE": 6,
+      "PUMP": 2,
+      "COOLING": 8,
+      "EXIT": 7,
+      "RE_ENTRY": 5
+    },
+    "AUDIO": {
+      "EARLY_MOVE": 5,
+      "PUMP": 4,
+      "COOLING": 5,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    "PYR": {
+      "EARLY_MOVE": 4,
+      "PUMP": 3,
+      "COOLING": 4,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    "PROMPT": {
+      "EARLY_MOVE": 2,
+      "PUMP": 0,
+      "COOLING": 8,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    "POND": {
+      "EARLY_MOVE": 5,
+      "PUMP": 0,
+      "COOLING": 4,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    "RAD": {
+      "EARLY_MOVE": 5,
+      "PUMP": 1,
+      "COOLING": 7,
+      "EXIT": 7,
+      "RE_ENTRY": 0
+    },
+    "GHST": {
+      "EARLY_MOVE": 3,
+      "PUMP": 4,
+      "COOLING": 6,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    "OXT": {
+      "EARLY_MOVE": 0,
+      "PUMP": 5,
+      "COOLING": 9,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    "RARI": {
+      "EARLY_MOVE": 5,
+      "PUMP": 1,
+      "COOLING": 0,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    "HIGH": {
+      "EARLY_MOVE": 5,
+      "PUMP": 0,
+      "COOLING": 4,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    "HONEY": {
+      "EARLY_MOVE": 4,
+      "PUMP": 6,
+      "COOLING": 6,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    "KRL": {
+      "EARLY_MOVE": 15,
+      "PUMP": 0,
+      "COOLING": 1,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "PERP": {
+      "EARLY_MOVE": 2,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    }
+  },
+  "flow": {
+    "binance_connected": true,
+    "gate_connected": true,
+    "no_recent_trades": 9
+  },
+  "events": {
+    "timeouts": 0,
+    "websocket": 0,
+    "tracebacks": 2,
+    "exceptions": 2,
+    "http_429": 1,
+    "http_500": 3
+  },
+  "interesting_lines": [
+    "\"drawdown_from_72h_peak_pct\": -12.1429,",
+    "\"avg_max_drawdown\": -1.2227338709677429",
+    "\"avg_max_drawdown\": -2.1351339285714293",
+    "\"avg_max_gain\": 3.2443645429362906,",
+    "\"max_drawdown_pct\": -0.4292",
+    "\"change_pct\": 0.4292,",
+    "\"signal_type\": \"RE_ENTRY\",",
+    "\"observed_at\": 1788010429,",
+    "\"change_pct\": -1.8429,",
+    "\"11h\": 0.1429,",
+    "\"relative_24h_pct\": 6.4292",
+    "\"32h\": 21.0429,",
+    "\"11.5h\": 3.5429,",
+    "\"49h\": 3.5429,",
+    "\"5m\": 0.5429,",
+    "\"asset_5m_pct\": 0.5429,",
+    "\"price_impulse_pct\": 0.5429,",
+    "\"bullish_impulse_pct\": 0.5429,",
+    "\"26m\": -1.8429,",
+    "\"27m\": -1.8429,",
+    "\"15m\": -8.6429,",
+    "\"16m\": -8.6429,",
+    "\"7m\": 0.4292,",
+    "\"change_since_signal_pct\": -0.4292,",
+    "\"9m\": 5.4299,",
+    "\"asset_5m_pct\": -0.1429,",
+    "\"5m\": -0.1429,",
+    "\"price_impulse_pct\": 1.0429,",
+    "\"bullish_impulse_pct\": 1.0429,",
+    "\"5m\": 1.0429,",
+    "\"type\": \"RE_ENTRY\",",
+    "\"17m\": -0.4298,",
+    "\"29m\": 2.6429,",
+    "\"8m\": -0.0429,",
+    "\"5m\": 0.4292,",
+    "\"6m\": 0.4292,",
+    "\"asset_5m_pct\": 0.4292,",
+    "\"bullish_impulse_pct\": 0.4292,",
+    "\"dynamic_persistence_10\": 0.429,",
+    "\"dynamic_volatility_5\": 0.4299,",
+    "\"10m\": 0.4429,",
+    "\"1m\": 2.7429,",
+    "\"4m\": 1.1429,",
+    "\"5m\": 1.1429,",
+    "\"6m\": 1.1429,",
+    "\"25m\": 1.1429,",
+    "\"26m\": 1.1429,",
+    "\"27m\": 1.1429,",
+    "\"28m\": 1.1429,",
+    "\"29m\": 1.1429,",
+    "\"30m\": 1.1429",
+    "\"9m\": -0.4292,",
+    "\"10m\": -0.4292,",
+    "\"8m\": -0.4292,",
+    "\"end_change_pct\": -4.7429,",
+    "Aug 29 13:53:56 instance-20260826-1349 python[46388]: ERROR:    Exception in ASGI application",
+    "Aug 29 13:53:56 instance-20260826-1349 python[46388]: Traceback (most recent call last):",
+    "Aug 29 13:53:56 instance-20260826-1349 python[46388]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__",
+    "Aug 29 13:53:56 instance-20260826-1349 python[46388]:     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)",
+    "Aug 29 13:53:56 instance-20260826-1349 python[46388]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app",
+    "Aug 29 13:53:56 instance-20260826-1349 python[46388]:   File \"/opt/pump-hunter/venv/lib64/python3.9/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app",
+    "Aug 29 13:53:56 instance-20260826-1349 python[46388]:     await wrap_app_handling_exceptions(app, request)(scope, receive, send)",
+    "========== ERRORS / TRACEBACK =========="
+  ],
+  "top_assets": [
+    {
+      "asset": "HOPR",
+      "total": 112,
+      "EARLY_MOVE": 35,
+      "PUMP": 38,
+      "COOLING": 35,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "NCT",
+      "total": 101,
+      "EARLY_MOVE": 45,
+      "PUMP": 9,
+      "COOLING": 37,
+      "EXIT": 10,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "POLS",
+      "total": 100,
+      "EARLY_MOVE": 44,
+      "PUMP": 39,
+      "COOLING": 11,
+      "EXIT": 5,
+      "RE_ENTRY": 1
+    },
+    {
+      "asset": "NKN",
+      "total": 84,
+      "EARLY_MOVE": 28,
+      "PUMP": 22,
+      "COOLING": 18,
+      "EXIT": 16,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "DOLO",
+      "total": 38,
+      "EARLY_MOVE": 26,
+      "PUMP": 12,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AI",
+      "total": 36,
+      "EARLY_MOVE": 24,
+      "PUMP": 2,
+      "COOLING": 6,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "EUL",
+      "total": 36,
+      "EARLY_MOVE": 33,
+      "PUMP": 1,
+      "COOLING": 2,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PRCL",
+      "total": 28,
+      "EARLY_MOVE": 6,
+      "PUMP": 2,
+      "COOLING": 8,
+      "EXIT": 7,
+      "RE_ENTRY": 5
+    },
+    {
+      "asset": "LCX",
+      "total": 24,
+      "EARLY_MOVE": 24,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "GST",
+      "total": 20,
+      "EARLY_MOVE": 20,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AUDIO",
+      "total": 20,
+      "EARLY_MOVE": 5,
+      "PUMP": 4,
+      "COOLING": 5,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "RAD",
+      "total": 20,
+      "EARLY_MOVE": 5,
+      "PUMP": 1,
+      "COOLING": 7,
+      "EXIT": 7,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "OXT",
+      "total": 20,
+      "EARLY_MOVE": 0,
+      "PUMP": 5,
+      "COOLING": 9,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "MDT",
+      "total": 19,
+      "EARLY_MOVE": 2,
+      "PUMP": 5,
+      "COOLING": 5,
+      "EXIT": 7,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "GHST",
+      "total": 19,
+      "EARLY_MOVE": 3,
+      "PUMP": 4,
+      "COOLING": 6,
+      "EXIT": 6,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "HONEY",
+      "total": 18,
+      "EARLY_MOVE": 4,
+      "PUMP": 6,
+      "COOLING": 6,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "KRL",
+      "total": 16,
+      "EARLY_MOVE": 15,
+      "PUMP": 0,
+      "COOLING": 1,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "LRDS",
+      "total": 14,
+      "EARLY_MOVE": 1,
+      "PUMP": 5,
+      "COOLING": 7,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PROMPT",
+      "total": 14,
+      "EARLY_MOVE": 2,
+      "PUMP": 0,
+      "COOLING": 8,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "POND",
+      "total": 14,
+      "EARLY_MOVE": 5,
+      "PUMP": 0,
+      "COOLING": 4,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "HIGH",
+      "total": 14,
+      "EARLY_MOVE": 5,
+      "PUMP": 0,
+      "COOLING": 4,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PYR",
+      "total": 12,
+      "EARLY_MOVE": 4,
+      "PUMP": 3,
+      "COOLING": 4,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "TRUMP",
+      "total": 8,
+      "EARLY_MOVE": 5,
+      "PUMP": 1,
+      "COOLING": 0,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "RARI",
+      "total": 8,
+      "EARLY_MOVE": 5,
+      "PUMP": 1,
+      "COOLING": 0,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PERP",
+      "total": 4,
+      "EARLY_MOVE": 2,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    }
+  ]
+}
