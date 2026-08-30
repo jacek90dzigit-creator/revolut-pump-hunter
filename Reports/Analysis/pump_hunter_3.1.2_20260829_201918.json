@@ -1,0 +1,347 @@
+{
+  "analysis_version": 2,
+  "generated_at_utc": "2026-08-30T06:08:54.939993+00:00",
+  "report": {
+    "name": "pump_hunter_3.1.2_20260829_201918.txt",
+    "size_bytes": 3419904
+  },
+  "engine": {
+    "version": "3.1.2",
+    "sample_every_seconds": 2.0,
+    "market_context_hours": 72
+  },
+  "learner": {
+    "samples": 3412
+  },
+  "signals": {
+    "EARLY_MOVE": {
+      "signal_type_count": 122,
+      "all_mentions": 289
+    },
+    "PUMP": {
+      "signal_type_count": 33,
+      "all_mentions": 112
+    },
+    "COOLING": {
+      "signal_type_count": 150,
+      "all_mentions": 290
+    },
+    "EXIT": {
+      "signal_type_count": 95,
+      "all_mentions": 180
+    },
+    "RE_ENTRY": {
+      "signal_type_count": 0,
+      "all_mentions": 2
+    }
+  },
+  "assets": {
+    "NKN": {
+      "EARLY_MOVE": 12,
+      "PUMP": 2,
+      "COOLING": 10,
+      "EXIT": 7,
+      "RE_ENTRY": 0
+    },
+    "MDT": {
+      "EARLY_MOVE": 15,
+      "PUMP": 5,
+      "COOLING": 24,
+      "EXIT": 20,
+      "RE_ENTRY": 0
+    },
+    "KARRAT": {
+      "EARLY_MOVE": 25,
+      "PUMP": 3,
+      "COOLING": 22,
+      "EXIT": 18,
+      "RE_ENTRY": 0
+    },
+    "PYR": {
+      "EARLY_MOVE": 20,
+      "PUMP": 1,
+      "COOLING": 30,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    "OXT": {
+      "EARLY_MOVE": 28,
+      "PUMP": 0,
+      "COOLING": 39,
+      "EXIT": 17,
+      "RE_ENTRY": 0
+    },
+    "AVT": {
+      "EARLY_MOVE": 10,
+      "PUMP": 21,
+      "COOLING": 16,
+      "EXIT": 17,
+      "RE_ENTRY": 0
+    },
+    "AERGO": {
+      "EARLY_MOVE": 27,
+      "PUMP": 4,
+      "COOLING": 28,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    "HONEY": {
+      "EARLY_MOVE": 14,
+      "PUMP": 3,
+      "COOLING": 23,
+      "EXIT": 33,
+      "RE_ENTRY": 0
+    },
+    "LRDS": {
+      "EARLY_MOVE": 3,
+      "PUMP": 0,
+      "COOLING": 39,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    "IDOS": {
+      "EARLY_MOVE": 12,
+      "PUMP": 0,
+      "COOLING": 2,
+      "EXIT": 8,
+      "RE_ENTRY": 0
+    },
+    "TRAC": {
+      "EARLY_MOVE": 19,
+      "PUMP": 1,
+      "COOLING": 4,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    "BENJI": {
+      "EARLY_MOVE": 17,
+      "PUMP": 13,
+      "COOLING": 19,
+      "EXIT": 17,
+      "RE_ENTRY": 0
+    },
+    "ALEPH": {
+      "EARLY_MOVE": 16,
+      "PUMP": 1,
+      "COOLING": 5,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    "RIZE": {
+      "EARLY_MOVE": 15,
+      "PUMP": 0,
+      "COOLING": 13,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "HIGH": {
+      "EARLY_MOVE": 11,
+      "PUMP": 12,
+      "COOLING": 25,
+      "EXIT": 30,
+      "RE_ENTRY": 0
+    },
+    "LCX": {
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 8,
+      "RE_ENTRY": 0
+    }
+  },
+  "flow": {
+    "binance_connected": true,
+    "gate_connected": true,
+    "no_recent_trades": 12
+  },
+  "events": {
+    "timeouts": 4,
+    "websocket": 7,
+    "tracebacks": 2,
+    "exceptions": 4,
+    "http_429": 3,
+    "http_500": 1
+  },
+  "interesting_lines": [
+    "\"avg_change\": 0.01271025081788429,",
+    "\"change_pct\": 0.4294,",
+    "\"observed_at\": 1788034297,",
+    "\"observed_at\": 1788034290,",
+    "\"45h\": 5.7429,",
+    "\"47h\": -8.4294,",
+    "\"5.75h\": 1.2429,",
+    "\"21h\": 7.6429,",
+    "\"2.75h\": -0.4294,",
+    "\"4m\": 1.8429,",
+    "\"5m\": 1.8429,",
+    "\"24m\": 1.8429,",
+    "\"asset_5m_pct\": 1.8429,",
+    "\"price_impulse_pct\": 1.8429,",
+    "\"bullish_impulse_pct\": 1.8429,",
+    "\"relative_30m_pct\": 0.4295,",
+    "\"volume_ratio_raw\": 23.429,",
+    "\"peak_price\": 0.09429,",
+    "\"type\": \"RE_ENTRY\",",
+    "\"19.5h\": 17.4296,",
+    "\"20h\": 17.4296,",
+    "\"23m\": -0.8429,",
+    "\"dynamic_volatility_5\": 0.4291,",
+    "\"9m\": -0.4292,",
+    "\"12h\": -1.9429,",
+    "\"btc_5m_pct\": -0.0429,",
+    "\"age_hours\": 4.429,",
+    "\"27m\": 0.4293,",
+    "\"28m\": 0.4293,",
+    "\"24m\": -0.4429,",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: asyncio.exceptions.TimeoutError: timed out while closing connection",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: The above exception was the direct cause of the following exception:",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: Traceback (most recent call last):",
+    "Aug 29 16:47:02 instance-20260826-1349 python[47121]: websockets.exceptions.ConnectionClosedOK: sent 1000 (OK); then received 1000 (OK)"
+  ],
+  "top_assets": [
+    {
+      "asset": "OXT",
+      "total": 84,
+      "EARLY_MOVE": 28,
+      "PUMP": 0,
+      "COOLING": 39,
+      "EXIT": 17,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "HIGH",
+      "total": 78,
+      "EARLY_MOVE": 11,
+      "PUMP": 12,
+      "COOLING": 25,
+      "EXIT": 30,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "HONEY",
+      "total": 73,
+      "EARLY_MOVE": 14,
+      "PUMP": 3,
+      "COOLING": 23,
+      "EXIT": 33,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "KARRAT",
+      "total": 68,
+      "EARLY_MOVE": 25,
+      "PUMP": 3,
+      "COOLING": 22,
+      "EXIT": 18,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "BENJI",
+      "total": 66,
+      "EARLY_MOVE": 17,
+      "PUMP": 13,
+      "COOLING": 19,
+      "EXIT": 17,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "MDT",
+      "total": 64,
+      "EARLY_MOVE": 15,
+      "PUMP": 5,
+      "COOLING": 24,
+      "EXIT": 20,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AVT",
+      "total": 64,
+      "EARLY_MOVE": 10,
+      "PUMP": 21,
+      "COOLING": 16,
+      "EXIT": 17,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AERGO",
+      "total": 62,
+      "EARLY_MOVE": 27,
+      "PUMP": 4,
+      "COOLING": 28,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PYR",
+      "total": 56,
+      "EARLY_MOVE": 20,
+      "PUMP": 1,
+      "COOLING": 30,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "LRDS",
+      "total": 45,
+      "EARLY_MOVE": 3,
+      "PUMP": 0,
+      "COOLING": 39,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "NKN",
+      "total": 31,
+      "EARLY_MOVE": 12,
+      "PUMP": 2,
+      "COOLING": 10,
+      "EXIT": 7,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "RIZE",
+      "total": 28,
+      "EARLY_MOVE": 15,
+      "PUMP": 0,
+      "COOLING": 13,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "TRAC",
+      "total": 26,
+      "EARLY_MOVE": 19,
+      "PUMP": 1,
+      "COOLING": 4,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "ALEPH",
+      "total": 24,
+      "EARLY_MOVE": 16,
+      "PUMP": 1,
+      "COOLING": 5,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "IDOS",
+      "total": 22,
+      "EARLY_MOVE": 12,
+      "PUMP": 0,
+      "COOLING": 2,
+      "EXIT": 8,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "LCX",
+      "total": 8,
+      "EARLY_MOVE": 0,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 8,
+      "RE_ENTRY": 0
+    }
+  ]
+}
