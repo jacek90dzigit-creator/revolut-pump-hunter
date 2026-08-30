@@ -1,0 +1,81 @@
+{
+  "analysis_version": 2,
+  "generated_at_utc": "2026-08-30T06:08:37.844081+00:00",
+  "report": {
+    "name": "pump_hunter_snapshot.txt",
+    "size_bytes": 148201
+  },
+  "engine": {
+    "version": "2.9.5",
+    "sample_every_seconds": null,
+    "market_context_hours": null
+  },
+  "learner": {
+    "samples": 0
+  },
+  "signals": {
+    "EARLY_MOVE": {
+      "signal_type_count": 0,
+      "all_mentions": 7
+    },
+    "PUMP": {
+      "signal_type_count": 0,
+      "all_mentions": 47
+    },
+    "COOLING": {
+      "signal_type_count": 0,
+      "all_mentions": 10
+    },
+    "EXIT": {
+      "signal_type_count": 0,
+      "all_mentions": 7
+    },
+    "RE_ENTRY": {
+      "signal_type_count": 0,
+      "all_mentions": 6
+    }
+  },
+  "assets": {},
+  "flow": {
+    "binance_connected": false,
+    "gate_connected": false,
+    "no_recent_trades": 0
+  },
+  "events": {
+    "timeouts": 32,
+    "websocket": 9,
+    "tracebacks": 0,
+    "exceptions": 25,
+    "http_429": 2,
+    "http_500": 5
+  },
+  "interesting_lines": [
+    "con = sqlite3.connect(DB_PATH, timeout=10)",
+    "con.execute(\"PRAGMA busy_timeout=5000\")",
+    "except Exception:",
+    "# A genuine second wave after cooling is a RE_ENTRY event.",
+    "\"type\": \"RE_ENTRY\" if is_reentry else desired,",
+    "timeout=20,",
+    "if response.status_code == 429:",
+    "raise RuntimeError(f\"Revolut HTTP 429, Retry-After={retry_after} ms\")",
+    "response = requests.get(BINANCE_EXCHANGE_INFO_URL, timeout=30)",
+    "timeout=30,",
+    "response = requests.get(GATE_CURRENCY_PAIRS_URL, timeout=30)",
+    "response = requests.get(KRAKEN_ASSET_PAIRS_URL, timeout=30)",
+    "timeout=15,",
+    "except Exception as exc:",
+    "ping_timeout=60,",
+    "close_timeout=10,",
+    "GATE_WS_URL, ping_interval=20, ping_timeout=60,",
+    "close_timeout=10, max_size=2_000_000",
+    "timeout=app_ping_seconds,",
+    "except asyncio.TimeoutError:",
+    "COINBASE_WS_URL, ping_interval=20, ping_timeout=60,",
+    "KRAKEN_WS_URL, ping_interval=20, ping_timeout=60,",
+    "rows = [sig for sig in signals if sig.get(\"type\") == \"RE_ENTRY\"]",
+    "reentry_count = sum(1 for sig in signals if sig.get(\"type\") == \"RE_ENTRY\")",
+    "\"EARLY_MOVE\": [], \"PUMP\": [], \"RE_ENTRY\": [], \"COOLING\": [], \"EXIT\": []",
+    "\"re_entries\": by_type[\"RE_ENTRY\"][:20],"
+  ],
+  "top_assets": []
+}
