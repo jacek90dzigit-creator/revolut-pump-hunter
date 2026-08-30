@@ -27,7 +27,7 @@ fun SettingsScreen(
         item {
             SectionHeader(
                 "Ustawienia",
-                "Android 3.0 LIVE • połączenie z Pump Hunter Engine"
+                "Android 3.1 LIVE • Engine + kontekst 1D / 3D / 5D"
             )
         }
 
@@ -96,14 +96,14 @@ fun SettingsScreen(
                 Column(Modifier.padding(16.dp)) {
                     Text("Informacje", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text("Aplikacja: Android 3.0")
+                    Text("Aplikacja: Android 3.1")
                     Text("Engine: $engineVersion")
-                    Text("Odświeżanie: co 15 s")
-                    Text("Źródło sygnałów: /signals")
-                    Text("Stan silnika: / + /v31-engine")
+                    Text("Sygnały LIVE: co 15 s")
+                    Text("Trend 1D/3D/5D: cache 10 min")
+                    Text("Kontekst: /app-price-context/{asset}")
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Watchlista ★ jest zapisywana lokalnie na telefonie.",
+                        "1D / 3D / 5D są wyłącznie informacyjne i nie wpływają na scoring Engine.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

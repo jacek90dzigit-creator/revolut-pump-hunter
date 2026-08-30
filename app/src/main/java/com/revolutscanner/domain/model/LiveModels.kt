@@ -7,6 +7,34 @@ data class ServerStatusUi(
     val engine: String = "-"
 )
 
+data class PriceContextPeriodUi(
+    val changePct: Double?,
+    val referencePrice: Double?,
+    val ready: Boolean,
+    val samples: Int?,
+    val error: String?
+)
+
+data class PriceContextUi(
+    val asset: String,
+    val assetName: String,
+    val source: String,
+    val sourceName: String,
+    val sourceSymbol: String?,
+    val currentPrice: Double?,
+    val generatedAt: Long,
+    val windowMinutes: Int,
+    val cacheSeconds: Int,
+    val informationalOnly: Boolean,
+    val affectsEngine: Boolean,
+    val oneDay: PriceContextPeriodUi?,
+    val threeDays: PriceContextPeriodUi?,
+    val fiveDays: PriceContextPeriodUi?,
+    val ready: Boolean,
+    val cached: Boolean,
+    val cacheAgeSeconds: Double?
+)
+
 data class LiveSignalUi(
     val id: String,
     val type: String,
@@ -36,7 +64,8 @@ data class LiveSignalUi(
     val volumeRatio: Double?,
     val volumeConfirmed: Boolean?,
     val change24hPct: Double?,
-    val drawdown72hPct: Double?
+    val drawdown72hPct: Double?,
+    val priceContext: PriceContextUi? = null
 ) {
     val primaryScore: Int?
         get() = fusionScore ?: qualityScore ?: dynamicMomentumScore ?: pumpScore ?: momentumScore

@@ -87,6 +87,38 @@ fun SignalDetailScreen(
                 )
             ) {
                 Column(Modifier.padding(16.dp)) {
+                    Text("TREND SZERSZY", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Informacyjny kontekst ceny 1D / 3D / 5D",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    PriceContextStrip(signal.priceContext)
+
+                    signal.priceContext?.let { context ->
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Spacer(Modifier.height(8.dp))
+                        MetricRow("Źródło kontekstu", context.sourceName)
+                        context.sourceSymbol?.let { MetricRow("Para", it) }
+                        MetricRow("Okno referencyjne", "±${context.windowMinutes} min")
+                        MetricRow("Cache", "${context.cacheSeconds / 60} min")
+                        MetricRow("Wpływa na Engine", if (context.affectsEngine) "TAK" else "NIE")
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(Modifier.padding(16.dp)) {
                     Text("SCORING", fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(10.dp))
 
@@ -177,7 +209,7 @@ fun SignalDetailScreen(
                     signal.trades1m?.let { MetricRow("Trades 1m", it.toString()) }
                     signal.volumeRatio?.let { MetricRow("Volume ratio", String.format("%.3f", it)) }
                     signal.volumeConfirmed?.let { MetricRow("Volume confirmed", if (it) "TAK" else "NIE") }
-                    signal.change24hPct?.let { MetricRow("Zmiana 24h", formatPct(it)) }
+                    signal.change24hPct?.let { MetricRow("Zmiana 24h Engine", formatPct(it)) }
                     signal.drawdown72hPct?.let { MetricRow("Drawdown 72h", formatPct(it)) }
                     signal.dynamicVelocityPct?.let { MetricRow("Velocity", formatPct(it)) }
                     signal.dynamicAccelerationPct?.let { MetricRow("Acceleration", formatPct(it)) }

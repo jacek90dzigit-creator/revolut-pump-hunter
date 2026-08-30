@@ -33,7 +33,7 @@ fun DashboardScreen(
         item {
             SectionHeader(
                 title = "PUMP HUNTER",
-                subtitle = "Android 3.0  •  Engine $engineVersion  •  $engineName"
+                subtitle = "Android 3.1  •  Engine $engineVersion  •  $engineName"
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ServerStatusBadge(online)

@@ -26,17 +26,26 @@ fun PumpHunterApp(
     mainViewModel: MainViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.HOME) }
-    var selectedSignal by remember { mutableStateOf<LiveSignalUi?>(null) }
+    var selectedSignalId by remember { mutableStateOf<String?>(null) }
+
+    val selectedSignal = selectedSignalId?.let { id ->
+        mainViewModel.signals.firstOrNull { it.id == id }
+    }
 
     val strongest = mainViewModel.activeSignals.maxByOrNull {
         it.primaryScore ?: Int.MIN_VALUE
+    }
+
+    fun openSignal(signal: LiveSignalUi) {
+        mainViewModel.ensurePriceContext(signal.asset)
+        selectedSignalId = signal.id
     }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (selectedSignal == null) {
+            if (selectedSignalId == null) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface
                 ) {
@@ -69,14 +78,12 @@ fun PumpHunterApp(
                 .padding(padding)
                 .padding(top = 12.dp)
         ) {
-            val detail = selectedSignal
-
-            if (detail != null) {
+            if (selectedSignal != null) {
                 SignalDetailScreen(
-                    signal = detail,
-                    favorite = mainViewModel.isFavorite(detail.asset),
-                    onFavorite = { mainViewModel.toggleFavorite(detail.asset) },
-                    onBack = { selectedSignal = null }
+                    signal = selectedSignal,
+                    favorite = mainViewModel.isFavorite(selectedSignal.asset),
+                    onFavorite = { mainViewModel.toggleFavorite(selectedSignal.asset) },
+                    onBack = { selectedSignalId = null }
                 )
             } else {
                 when (selectedTab) {
@@ -93,7 +100,7 @@ fun PumpHunterApp(
                         strongest = strongest,
                         isFavorite = mainViewModel::isFavorite,
                         onFavorite = mainViewModel::toggleFavorite,
-                        onSignalClick = { selectedSignal = it },
+                        onSignalClick = ::openSignal,
                         onRefresh = mainViewModel::refresh
                     )
 
@@ -101,21 +108,21 @@ fun PumpHunterApp(
                         signals = mainViewModel.signals,
                         isFavorite = mainViewModel::isFavorite,
                         onFavorite = mainViewModel::toggleFavorite,
-                        onSignalClick = { selectedSignal = it }
+                        onSignalClick = ::openSignal
                     )
 
                     MainTab.ACTIVE -> ActiveScreen(
                         signals = mainViewModel.activeSignals,
                         isFavorite = mainViewModel::isFavorite,
                         onFavorite = mainViewModel::toggleFavorite,
-                        onSignalClick = { selectedSignal = it }
+                        onSignalClick = ::openSignal
                     )
 
                     MainTab.WATCHLIST -> WatchlistScreen(
                         favoriteAssets = mainViewModel.favorites,
                         signals = mainViewModel.watchlistSignals,
                         onFavorite = mainViewModel::toggleFavorite,
-                        onSignalClick = { selectedSignal = it }
+                        onSignalClick = ::openSignal
                     )
 
                     MainTab.SETTINGS -> SettingsScreen(

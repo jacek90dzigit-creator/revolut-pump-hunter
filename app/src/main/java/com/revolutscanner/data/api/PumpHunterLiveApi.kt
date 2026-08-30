@@ -2,6 +2,8 @@ package com.revolutscanner.data.api
 
 import com.revolutscanner.domain.model.LiveSignalUi
 import com.revolutscanner.domain.model.LiveSnapshot
+import com.revolutscanner.domain.model.PriceContextPeriodUi
+import com.revolutscanner.domain.model.PriceContextUi
 import com.revolutscanner.domain.model.ServerStatusUi
 import org.json.JSONArray
 import org.json.JSONObject
@@ -50,13 +52,53 @@ class PumpHunterLiveApi(
         )
     }
 
+    fun fetchPriceContext(asset: String): PriceContextUi {
+        val baseUrl = normalizeBaseUrl(baseUrlProvider())
+        require(baseUrl.isNotBlank()) { "Brak adresu serwera." }
+
+        val symbol = asset.trim().uppercase()
+        val root = fetchObject(baseUrl, "/app-price-context/$symbol")
+        val periods = root.optJSONObject("periods") ?: JSONObject()
+
+        return PriceContextUi(
+            asset = root.optString("asset", symbol),
+            assetName = root.optString("asset_name", symbol),
+            source = root.optString("source", "-"),
+            sourceName = root.optString("source_name", prettySource(root.optString("source", "-"))),
+            sourceSymbol = nullableString(root, "source_symbol"),
+            currentPrice = nullableDouble(root, "current_price"),
+            generatedAt = longOrZero(root, "generated_at"),
+            windowMinutes = nullableInt(root, "window_minutes") ?: 5,
+            cacheSeconds = nullableInt(root, "cache_seconds") ?: 600,
+            informationalOnly = nullableBoolean(root, "informational_only") ?: true,
+            affectsEngine = nullableBoolean(root, "affects_engine") ?: false,
+            oneDay = parseContextPeriod(periods.optJSONObject("1D")),
+            threeDays = parseContextPeriod(periods.optJSONObject("3D")),
+            fiveDays = parseContextPeriod(periods.optJSONObject("5D")),
+            ready = nullableBoolean(root, "ready") ?: false,
+            cached = nullableBoolean(root, "cached") ?: false,
+            cacheAgeSeconds = nullableDouble(root, "cache_age_seconds")
+        )
+    }
+
+    private fun parseContextPeriod(obj: JSONObject?): PriceContextPeriodUi? {
+        if (obj == null) return null
+        return PriceContextPeriodUi(
+            changePct = nullableDouble(obj, "change_pct"),
+            referencePrice = nullableDouble(obj, "reference_price"),
+            ready = nullableBoolean(obj, "ready") ?: false,
+            samples = nullableInt(obj, "samples"),
+            error = nullableString(obj, "error")
+        )
+    }
+
     private fun fetchObject(baseUrl: String, path: String): JSONObject {
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
         connection.connectTimeout = 8_000
         connection.readTimeout = 12_000
         connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("User-Agent", "PumpHunterAndroid/3.0")
+        connection.setRequestProperty("User-Agent", "PumpHunterAndroid/3.1")
 
         try {
             val code = connection.responseCode
@@ -79,7 +121,6 @@ class PumpHunterLiveApi(
         val timestamp = longOrNow(obj, "timestamp", "signal_ts")
 
         val fusion = obj.optJSONObject("v32")?.optJSONObject("fusion")
-        val fusionMomentum = fusion?.optJSONObject("momentum")
         val fusionVolume = fusion?.optJSONObject("volume")
         val fusionFlow = fusion?.optJSONObject("order_flow")
         val fusionContext = fusion?.optJSONObject("context")
@@ -161,9 +202,8 @@ class PumpHunterLiveApi(
         return null
     }
 
-    private fun looksLikeMinuteWindows(obj: JSONObject): Boolean {
-        return obj.has("1m") && (obj.has("5m") || obj.has("10m") || obj.has("30m"))
-    }
+    private fun looksLikeMinuteWindows(obj: JSONObject): Boolean =
+        obj.has("1m") && (obj.has("5m") || obj.has("10m") || obj.has("30m"))
 
     private fun minuteMap(obj: JSONObject): Map<Int, Double?> =
         (1..30).associateWith { minute -> nullableDouble(obj, "${minute}m") }
@@ -195,6 +235,15 @@ class PumpHunterLiveApi(
     private fun nullableString(obj: JSONObject, key: String): String? {
         if (!obj.has(key) || obj.isNull(key)) return null
         return obj.optString(key).takeIf { it.isNotBlank() && it != "null" }
+    }
+
+    private fun longOrZero(obj: JSONObject, key: String): Long {
+        if (!obj.has(key) || obj.isNull(key)) return 0L
+        return when (val raw = obj.opt(key)) {
+            is Number -> raw.toLong()
+            is String -> raw.toDoubleOrNull()?.toLong() ?: 0L
+            else -> 0L
+        }
     }
 
     private fun longOrNow(obj: JSONObject, vararg keys: String): Long {

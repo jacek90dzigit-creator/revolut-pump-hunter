@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.revolutscanner.domain.model.LiveSignalUi
+import com.revolutscanner.domain.model.PriceContextUi
 import com.revolutscanner.domain.model.PumpStatus
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -185,6 +186,13 @@ fun LiveSignalCard(
                 Spacer(Modifier.height(9.dp))
             }
 
+            Text(
+                "RUCH TERAZ",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(5.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 CompactMetric("1m", signal.windows[1]?.let { formatPct(it) } ?: "—", Modifier.weight(1f))
                 CompactMetric("5m", signal.windows[5]?.let { formatPct(it) } ?: "—", Modifier.weight(1f))
@@ -192,13 +200,82 @@ fun LiveSignalCard(
                 CompactMetric("30m", signal.windows[30]?.let { formatPct(it) } ?: "—", Modifier.weight(1f))
             }
 
-            Spacer(Modifier.height(7.dp))
+            Spacer(Modifier.height(10.dp))
+            PriceContextStrip(signal.priceContext)
+
+            Spacer(Modifier.height(8.dp))
             Text(
-                "Źródło: ${signal.sourceName}  •  ${formatTime(signal.timestamp)}",
+                "Sygnał: ${signal.sourceName}  •  ${formatTime(signal.timestamp)}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp
             )
         }
+    }
+}
+
+@Composable
+fun PriceContextStrip(context: PriceContextUi?) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "TREND SZERSZY",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            if (context != null) {
+                Text(
+                    context.sourceName,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp
+                )
+            }
+        }
+
+        Spacer(Modifier.height(5.dp))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            ContextMetric(
+                "1D",
+                context?.oneDay?.takeIf { it.ready }?.changePct,
+                Modifier.weight(1f)
+            )
+            ContextMetric(
+                "3D",
+                context?.threeDays?.takeIf { it.ready }?.changePct,
+                Modifier.weight(1f)
+            )
+            ContextMetric(
+                "5D",
+                context?.fiveDays?.takeIf { it.ready }?.changePct,
+                Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+fun ContextMetric(label: String, value: Double?, modifier: Modifier = Modifier) {
+    val color = when {
+        value == null -> MaterialTheme.colorScheme.onSurfaceVariant
+        value > 0 -> MaterialTheme.colorScheme.secondary
+        value < 0 -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    Column(modifier) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+        Text(
+            value?.let { formatPct(it) } ?: "—",
+            color = color,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -227,7 +304,6 @@ fun MetricRow(
     }
 }
 
-/* Zachowane dla starych, nieużywanych ekranów z gałęzi 2.x. */
 @Composable
 fun DemoDataBadge() {
     Box(
