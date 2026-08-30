@@ -1,0 +1,368 @@
+{
+  "analysis_version": 2,
+  "generated_at_utc": "2026-08-30T06:08:38.249558+00:00",
+  "report": {
+    "name": "pump_hunter_3.1_full_test.txt",
+    "size_bytes": 106196
+  },
+  "engine": {
+    "version": "3.1.0",
+    "sample_every_seconds": 2.0,
+    "market_context_hours": 72
+  },
+  "learner": {
+    "samples": 1559
+  },
+  "signals": {
+    "EARLY_MOVE": {
+      "signal_type_count": 51,
+      "all_mentions": 52
+    },
+    "PUMP": {
+      "signal_type_count": 34,
+      "all_mentions": 50
+    },
+    "COOLING": {
+      "signal_type_count": 50,
+      "all_mentions": 51
+    },
+    "EXIT": {
+      "signal_type_count": 40,
+      "all_mentions": 41
+    },
+    "RE_ENTRY": {
+      "signal_type_count": 17,
+      "all_mentions": 17
+    }
+  },
+  "assets": {
+    "GHST": {
+      "EARLY_MOVE": 0,
+      "PUMP": 1,
+      "COOLING": 5,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    "NCT": {
+      "EARLY_MOVE": 5,
+      "PUMP": 4,
+      "COOLING": 10,
+      "EXIT": 8,
+      "RE_ENTRY": 0
+    },
+    "TRUMP": {
+      "EARLY_MOVE": 4,
+      "PUMP": 1,
+      "COOLING": 0,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    "LRDS": {
+      "EARLY_MOVE": 0,
+      "PUMP": 4,
+      "COOLING": 5,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    "PRCL": {
+      "EARLY_MOVE": 6,
+      "PUMP": 1,
+      "COOLING": 3,
+      "EXIT": 3,
+      "RE_ENTRY": 1
+    },
+    "AUDIO": {
+      "EARLY_MOVE": 2,
+      "PUMP": 1,
+      "COOLING": 2,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    "PYR": {
+      "EARLY_MOVE": 2,
+      "PUMP": 3,
+      "COOLING": 2,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    "NKN": {
+      "EARLY_MOVE": 3,
+      "PUMP": 2,
+      "COOLING": 4,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    "PROMPT": {
+      "EARLY_MOVE": 1,
+      "PUMP": 0,
+      "COOLING": 5,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    "POND": {
+      "EARLY_MOVE": 3,
+      "PUMP": 0,
+      "COOLING": 3,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    "RAD": {
+      "EARLY_MOVE": 2,
+      "PUMP": 0,
+      "COOLING": 5,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    "OXT": {
+      "EARLY_MOVE": 0,
+      "PUMP": 4,
+      "COOLING": 5,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    "POLS": {
+      "EARLY_MOVE": 0,
+      "PUMP": 2,
+      "COOLING": 3,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    "MDT": {
+      "EARLY_MOVE": 1,
+      "PUMP": 0,
+      "COOLING": 2,
+      "EXIT": 5,
+      "RE_ENTRY": 1
+    },
+    "RARI": {
+      "EARLY_MOVE": 3,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    "HIGH": {
+      "EARLY_MOVE": 3,
+      "PUMP": 0,
+      "COOLING": 2,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    "HONEY": {
+      "EARLY_MOVE": 3,
+      "PUMP": 5,
+      "COOLING": 4,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    "KRL": {
+      "EARLY_MOVE": 15,
+      "PUMP": 0,
+      "COOLING": 1,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    "PERP": {
+      "EARLY_MOVE": 1,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    }
+  },
+  "flow": {
+    "binance_connected": true,
+    "gate_connected": true,
+    "no_recent_trades": 0
+  },
+  "events": {
+    "timeouts": 0,
+    "websocket": 0,
+    "tracebacks": 0,
+    "exceptions": 0,
+    "http_429": 1,
+    "http_500": 0
+  },
+  "interesting_lines": [
+    "\"max_gain_5pct_rate\": 0.1429,",
+    "\"signal_type\": \"RE_ENTRY\",",
+    "\"n\": 429,",
+    "\"avg_max_drawdown\": -2.1351339285714293",
+    "\"avg_max_gain\": 3.2443645429362906,",
+    "\"max_drawdown_pct\": -0.4292",
+    "\"change_pct\": 0.4292,"
+  ],
+  "top_assets": [
+    {
+      "asset": "NCT",
+      "total": 27,
+      "EARLY_MOVE": 5,
+      "PUMP": 4,
+      "COOLING": 10,
+      "EXIT": 8,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "KRL",
+      "total": 16,
+      "EARLY_MOVE": 15,
+      "PUMP": 0,
+      "COOLING": 1,
+      "EXIT": 0,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PRCL",
+      "total": 14,
+      "EARLY_MOVE": 6,
+      "PUMP": 1,
+      "COOLING": 3,
+      "EXIT": 3,
+      "RE_ENTRY": 1
+    },
+    {
+      "asset": "NKN",
+      "total": 14,
+      "EARLY_MOVE": 3,
+      "PUMP": 2,
+      "COOLING": 4,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "HONEY",
+      "total": 14,
+      "EARLY_MOVE": 3,
+      "PUMP": 5,
+      "COOLING": 4,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "RAD",
+      "total": 12,
+      "EARLY_MOVE": 2,
+      "PUMP": 0,
+      "COOLING": 5,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "OXT",
+      "total": 12,
+      "EARLY_MOVE": 0,
+      "PUMP": 4,
+      "COOLING": 5,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "LRDS",
+      "total": 10,
+      "EARLY_MOVE": 0,
+      "PUMP": 4,
+      "COOLING": 5,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "AUDIO",
+      "total": 10,
+      "EARLY_MOVE": 2,
+      "PUMP": 1,
+      "COOLING": 2,
+      "EXIT": 5,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "POND",
+      "total": 10,
+      "EARLY_MOVE": 3,
+      "PUMP": 0,
+      "COOLING": 3,
+      "EXIT": 4,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "GHST",
+      "total": 9,
+      "EARLY_MOVE": 0,
+      "PUMP": 1,
+      "COOLING": 5,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "MDT",
+      "total": 9,
+      "EARLY_MOVE": 1,
+      "PUMP": 0,
+      "COOLING": 2,
+      "EXIT": 5,
+      "RE_ENTRY": 1
+    },
+    {
+      "asset": "PYR",
+      "total": 8,
+      "EARLY_MOVE": 2,
+      "PUMP": 3,
+      "COOLING": 2,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PROMPT",
+      "total": 8,
+      "EARLY_MOVE": 1,
+      "PUMP": 0,
+      "COOLING": 5,
+      "EXIT": 2,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "POLS",
+      "total": 8,
+      "EARLY_MOVE": 0,
+      "PUMP": 2,
+      "COOLING": 3,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "HIGH",
+      "total": 8,
+      "EARLY_MOVE": 3,
+      "PUMP": 0,
+      "COOLING": 2,
+      "EXIT": 3,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "TRUMP",
+      "total": 6,
+      "EARLY_MOVE": 4,
+      "PUMP": 1,
+      "COOLING": 0,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "RARI",
+      "total": 4,
+      "EARLY_MOVE": 3,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    },
+    {
+      "asset": "PERP",
+      "total": 2,
+      "EARLY_MOVE": 1,
+      "PUMP": 0,
+      "COOLING": 0,
+      "EXIT": 1,
+      "RE_ENTRY": 0
+    }
+  ]
+}
