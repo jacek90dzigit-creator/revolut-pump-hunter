@@ -27,7 +27,7 @@ fun SettingsScreen(
         item {
             SectionHeader(
                 "Ustawienia",
-                "Android 3.1 LIVE • Engine + kontekst 1D / 3D / 5D"
+                "Android 3.2 • LIVE + Candidate #5G Shadow"
             )
         }
 
@@ -96,14 +96,15 @@ fun SettingsScreen(
                 Column(Modifier.padding(16.dp)) {
                     Text("Informacje", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text("Aplikacja: Android 3.1")
+                    Text("Aplikacja: Android 3.2")
                     Text("Engine: $engineVersion")
                     Text("Sygnały LIVE: co 15 s")
                     Text("Trend 1D/3D/5D: cache 10 min")
-                    Text("Kontekst: /app-price-context/{asset}")
+                    Text("Shadow P21/P22.1: co 60 s")
+                    Text("Shadow API: /app-shadow")
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "1D / 3D / 5D są wyłącznie informacyjne i nie wpływają na scoring Engine.",
+                        "Candidate #5G działa w trybie SHADOW. Dane porównawcze nie zmieniają produkcyjnego Engine.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

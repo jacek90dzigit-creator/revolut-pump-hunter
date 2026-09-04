@@ -8,11 +8,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.revolutscanner.data.api.PumpHunterLiveApi
+import com.revolutscanner.data.api.PumpHunterShadowApi
 import com.revolutscanner.data.local.AppPreferences
 import com.revolutscanner.data.repository.LivePumpHunterRepository
 import com.revolutscanner.domain.model.LiveSignalUi
 import com.revolutscanner.domain.model.PriceContextUi
 import com.revolutscanner.domain.model.ServerStatusUi
+import com.revolutscanner.domain.model.ShadowSnapshotUi
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -22,11 +24,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val preferences = AppPreferences(application)
     private val api = PumpHunterLiveApi { preferences.serverUrl }
+    private val shadowApi = PumpHunterShadowApi { preferences.serverUrl }
     private val repository = LivePumpHunterRepository(api)
+
     private val executor = Executors.newSingleThreadExecutor()
     private val contextExecutor = Executors.newFixedThreadPool(4)
+    private val shadowExecutor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+
     private val refreshing = AtomicBoolean(false)
+    private val shadowRefreshing = AtomicBoolean(false)
 
     private val contextLastAttemptMs = ConcurrentHashMap<String, Long>()
     private val contextInFlight = Collections.synchronizedSet(mutableSetOf<String>())
@@ -56,6 +63,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     var priceContexts by mutableStateOf<Map<String, PriceContextUi>>(emptyMap())
+        private set
+
+    var shadow by mutableStateOf<ShadowSnapshotUi?>(null)
+        private set
+
+    var shadowLoading by mutableStateOf(false)
+        private set
+
+    var shadowError by mutableStateOf<String?>(null)
+        private set
+
+    var shadowLastUpdateMillis by mutableStateOf<Long?>(null)
         private set
 
     val serverOnline: Boolean
@@ -93,9 +112,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val shadowLoop = object : Runnable {
+        override fun run() {
+            refreshShadow()
+            mainHandler.postDelayed(this, SHADOW_REFRESH_INTERVAL_MS)
+        }
+    }
+
     init {
         refresh()
+        refreshShadow(force = true)
         mainHandler.postDelayed(refreshLoop, REFRESH_INTERVAL_MS)
+        mainHandler.postDelayed(shadowLoop, SHADOW_REFRESH_INTERVAL_MS)
     }
 
     fun refresh() {
@@ -123,7 +151,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     errorMessage = null
                     isLoading = false
                     refreshing.set(false)
-
                     schedulePriceContexts(signals)
                 }
             } catch (e: Exception) {
@@ -131,6 +158,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     errorMessage = e.message ?: e.javaClass.simpleName
                     isLoading = false
                     refreshing.set(false)
+                }
+            }
+        }
+    }
+
+    fun refreshShadow(force: Boolean = false) {
+        if (preferences.serverUrl.isBlank()) return
+
+        val now = System.currentTimeMillis()
+        val last = shadowLastUpdateMillis ?: 0L
+        if (!force && now - last < SHADOW_MIN_REFRESH_GAP_MS) return
+        if (!shadowRefreshing.compareAndSet(false, true)) return
+
+        shadowLoading = true
+
+        shadowExecutor.execute {
+            try {
+                val result = shadowApi.fetchShadow()
+                mainHandler.post {
+                    shadow = result
+                    shadowError = null
+                    shadowLoading = false
+                    shadowLastUpdateMillis = System.currentTimeMillis()
+                    shadowRefreshing.set(false)
+                }
+            } catch (e: Exception) {
+                mainHandler.post {
+                    shadowError = e.message ?: e.javaClass.simpleName
+                    shadowLoading = false
+                    shadowRefreshing.set(false)
                 }
             }
         }
@@ -173,7 +230,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (_: Exception) {
                 // Kontekst 1D/3D/5D jest wyłącznie informacyjny.
-                // Jego błąd nie może przełączyć całej aplikacji w OFFLINE.
             } finally {
                 contextInFlight.remove(symbol)
             }
@@ -184,9 +240,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         preferences.serverUrl = value
         serverUrl = preferences.serverUrl
         errorMessage = null
+        shadowError = null
         priceContexts = emptyMap()
         contextLastAttemptMs.clear()
+        shadow = null
+        shadowLastUpdateMillis = null
         refresh()
+        refreshShadow(force = true)
     }
 
     fun toggleFavorite(asset: String) {
@@ -198,13 +258,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         mainHandler.removeCallbacks(refreshLoop)
+        mainHandler.removeCallbacks(shadowLoop)
         executor.shutdownNow()
         contextExecutor.shutdownNow()
+        shadowExecutor.shutdownNow()
         super.onCleared()
     }
 
     companion object {
         private const val REFRESH_INTERVAL_MS = 15_000L
+        private const val SHADOW_REFRESH_INTERVAL_MS = 60_000L
+        private const val SHADOW_MIN_REFRESH_GAP_MS = 20_000L
         private const val PRICE_CONTEXT_TTL_MS = 10 * 60 * 1000L
         private const val MAX_CONTEXT_ASSETS = 24
         private val ACTIVE_TYPES = setOf("EARLY_MOVE", "PUMP", "COOLING", "RE_ENTRY")

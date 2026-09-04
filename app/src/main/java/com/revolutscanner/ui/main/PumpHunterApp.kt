@@ -27,6 +27,7 @@ fun PumpHunterApp(
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.HOME) }
     var selectedSignalId by remember { mutableStateOf<String?>(null) }
+    var shadowOpen by remember { mutableStateOf(false) }
 
     val selectedSignal = selectedSignalId?.let { id ->
         mainViewModel.signals.firstOrNull { it.id == id }
@@ -45,7 +46,7 @@ fun PumpHunterApp(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (selectedSignalId == null) {
+            if (selectedSignalId == null && !shadowOpen) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface
                 ) {
@@ -78,61 +79,83 @@ fun PumpHunterApp(
                 .padding(padding)
                 .padding(top = 12.dp)
         ) {
-            if (selectedSignal != null) {
-                SignalDetailScreen(
-                    signal = selectedSignal,
-                    favorite = mainViewModel.isFavorite(selectedSignal.asset),
-                    onFavorite = { mainViewModel.toggleFavorite(selectedSignal.asset) },
-                    onBack = { selectedSignalId = null }
-                )
-            } else {
-                when (selectedTab) {
-                    MainTab.HOME -> DashboardScreen(
-                        engineVersion = mainViewModel.server.version,
-                        engineName = mainViewModel.server.engine,
-                        online = mainViewModel.serverOnline,
-                        loading = mainViewModel.isLoading,
-                        error = mainViewModel.errorMessage,
-                        trackedAssets = mainViewModel.trackedAssets,
-                        pumpCount = mainViewModel.pumpCount,
-                        exitCount = mainViewModel.exitCount,
-                        watchlistCount = mainViewModel.favorites.size,
-                        strongest = strongest,
-                        isFavorite = mainViewModel::isFavorite,
-                        onFavorite = mainViewModel::toggleFavorite,
-                        onSignalClick = ::openSignal,
-                        onRefresh = mainViewModel::refresh
+            when {
+                shadowOpen -> {
+                    ShadowScreen(
+                        shadow = mainViewModel.shadow,
+                        loading = mainViewModel.shadowLoading,
+                        error = mainViewModel.shadowError,
+                        onBack = { shadowOpen = false },
+                        onRefresh = { mainViewModel.refreshShadow(force = true) }
                     )
+                }
 
-                    MainTab.SIGNALS -> SignalsScreen(
-                        signals = mainViewModel.signals,
-                        isFavorite = mainViewModel::isFavorite,
-                        onFavorite = mainViewModel::toggleFavorite,
-                        onSignalClick = ::openSignal
+                selectedSignal != null -> {
+                    SignalDetailScreen(
+                        signal = selectedSignal,
+                        favorite = mainViewModel.isFavorite(selectedSignal.asset),
+                        onFavorite = { mainViewModel.toggleFavorite(selectedSignal.asset) },
+                        onBack = { selectedSignalId = null }
                     )
+                }
 
-                    MainTab.ACTIVE -> ActiveScreen(
-                        signals = mainViewModel.activeSignals,
-                        isFavorite = mainViewModel::isFavorite,
-                        onFavorite = mainViewModel::toggleFavorite,
-                        onSignalClick = ::openSignal
-                    )
+                else -> {
+                    when (selectedTab) {
+                        MainTab.HOME -> DashboardScreen(
+                            engineVersion = mainViewModel.server.version,
+                            engineName = mainViewModel.server.engine,
+                            online = mainViewModel.serverOnline,
+                            loading = mainViewModel.isLoading,
+                            error = mainViewModel.errorMessage,
+                            trackedAssets = mainViewModel.trackedAssets,
+                            pumpCount = mainViewModel.pumpCount,
+                            exitCount = mainViewModel.exitCount,
+                            watchlistCount = mainViewModel.favorites.size,
+                            strongest = strongest,
+                            shadow = mainViewModel.shadow,
+                            shadowLoading = mainViewModel.shadowLoading,
+                            shadowError = mainViewModel.shadowError,
+                            isFavorite = mainViewModel::isFavorite,
+                            onFavorite = mainViewModel::toggleFavorite,
+                            onSignalClick = ::openSignal,
+                            onOpenShadow = {
+                                mainViewModel.refreshShadow(force = true)
+                                shadowOpen = true
+                            },
+                            onRefresh = mainViewModel::refresh,
+                            onRefreshShadow = { mainViewModel.refreshShadow(force = true) }
+                        )
 
-                    MainTab.WATCHLIST -> WatchlistScreen(
-                        favoriteAssets = mainViewModel.favorites,
-                        signals = mainViewModel.watchlistSignals,
-                        onFavorite = mainViewModel::toggleFavorite,
-                        onSignalClick = ::openSignal
-                    )
+                        MainTab.SIGNALS -> SignalsScreen(
+                            signals = mainViewModel.signals,
+                            isFavorite = mainViewModel::isFavorite,
+                            onFavorite = mainViewModel::toggleFavorite,
+                            onSignalClick = ::openSignal
+                        )
 
-                    MainTab.SETTINGS -> SettingsScreen(
-                        serverUrl = mainViewModel.serverUrl,
-                        serverOnline = mainViewModel.serverOnline,
-                        engineVersion = mainViewModel.server.version,
-                        errorMessage = mainViewModel.errorMessage,
-                        onSaveServerUrl = mainViewModel::saveServerUrl,
-                        onRefresh = mainViewModel::refresh
-                    )
+                        MainTab.ACTIVE -> ActiveScreen(
+                            signals = mainViewModel.activeSignals,
+                            isFavorite = mainViewModel::isFavorite,
+                            onFavorite = mainViewModel::toggleFavorite,
+                            onSignalClick = ::openSignal
+                        )
+
+                        MainTab.WATCHLIST -> WatchlistScreen(
+                            favoriteAssets = mainViewModel.favorites,
+                            signals = mainViewModel.watchlistSignals,
+                            onFavorite = mainViewModel::toggleFavorite,
+                            onSignalClick = ::openSignal
+                        )
+
+                        MainTab.SETTINGS -> SettingsScreen(
+                            serverUrl = mainViewModel.serverUrl,
+                            serverOnline = mainViewModel.serverOnline,
+                            engineVersion = mainViewModel.server.version,
+                            errorMessage = mainViewModel.errorMessage,
+                            onSaveServerUrl = mainViewModel::saveServerUrl,
+                            onRefresh = mainViewModel::refresh
+                        )
+                    }
                 }
             }
         }

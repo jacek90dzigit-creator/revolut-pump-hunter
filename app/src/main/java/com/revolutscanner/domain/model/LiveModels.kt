@@ -35,6 +35,64 @@ data class PriceContextUi(
     val cacheAgeSeconds: Double?
 )
 
+data class ShadowOutcomeUi(
+    val horizonMinutes: Int,
+    val changePct: Double?,
+    val maxGainPct: Double?,
+    val maxDrawdownPct: Double?
+)
+
+data class ShadowComparisonUi(
+    val eventId: String,
+    val symbol: String,
+    val asset: String,
+    val candidateTimestampUtc: String?,
+    val candidateTs: Long?,
+    val rvol15m: Double?,
+    val rvol1h: Double?,
+    val rvolRisingStreak: Int?,
+    val rvolAccel: Double?,
+    val compressionRatio: Double?,
+    val rangeExpansion: Double?,
+    val price15mPct: Double?,
+    val price1hPct: Double?,
+    val takerBuyRatio: Double?,
+    val btc1hPct: Double?,
+    val engineSignalFound: Boolean,
+    val engineSignalType: String?,
+    val engineSignalTimestampUtc: String?,
+    val relation: String,
+    val deltaMinutes: Double?,
+    val leadMinutes: Double?,
+    val engineQualityScore: Int?,
+    val engineEntryStatus: String?,
+    val engineMoveStage: String?,
+    val fusionScore: Int?,
+    val fusionGrade: String?,
+    val fusionAllowed: Boolean?,
+    val fusionReason: String?,
+    val phaseBefore: String?,
+    val phaseAfter: String?,
+    val comparisonStatus: String,
+    val outcomes: List<ShadowOutcomeUi>
+)
+
+data class ShadowSnapshotUi(
+    val candidateName: String = "Candidate #5G",
+    val p21Status: String = "-",
+    val p22Status: String = "-",
+    val shadowOnly: Boolean = true,
+    val candidateEvents: Int = 0,
+    val comparisonsComplete: Int = 0,
+    val comparisonsPending: Int = 0,
+    val candidateBeforeEngine: Int = 0,
+    val engineBeforeCandidate: Int = 0,
+    val sameTimestamp: Int = 0,
+    val averageCandidateLeadMinutes: Double? = null,
+    val updatedAt: String? = null,
+    val comparisons: List<ShadowComparisonUi> = emptyList()
+)
+
 data class LiveSignalUi(
     val id: String,
     val type: String,
